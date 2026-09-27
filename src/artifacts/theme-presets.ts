@@ -162,6 +162,178 @@ export const agentivityDark: ArtifactsThemeData = {
   colors: { primary: '#8B61FF', onPrimary: '#ffffff', primaryContainer: '#2D2040', onPrimaryContainer: '#C8B6FF', surface: '#1E1E1E', surfaceContainerLow: '#232323', surfaceContainerHigh: '#2A2A2A', surfaceContainerHighest: '#323232', outline: '#3d3d3d', outlineVariant: '#2A2A2A' },
 };
 
+// ── Riviera showcase set ────────────────────────────────────────────────────
+// Mirrors `AgArtifactsThemes`'s "Riviera showcase set" in the Flutter SDK, and is what
+// `agentivity_sdk_showcase_tripagency/src/theme/themes.ts` builds its own five themes on top of
+// — this is the SDK-portable half (widget card color/shape/font), kept here so both SDKs offer
+// the same five presets; the showcase app layers its own app-chrome-only tokens (ink/paper, hero
+// gradient, pill-button radius — concepts with no SDK widget equivalent) on top of these.
+
+/** **Light** — clean neutral default, indigo accent. Pairs with {@link dark} (same accent family and radius, inverted surfaces). */
+export const light: ArtifactsThemeData = {
+  cardRadius: 12,
+  cardPadding: '12px',
+  cardBorderWidth: 1,
+  cardBackground: '#FFFFFF',
+  cardBorderColor: '#E4E6EA',
+  cardShadow: '0px 8px 20px -10px rgba(20,22,26,0.14)',
+  badgeBackground: '#EEF0FF',
+  badgeForeground: '#4F46E5',
+  labelFontSize: 10,
+  headerFontSize: 12.5,
+  valueFontSize: 28,
+  codeFontSize: 12,
+  fontScale: 1,
+  spacingScale: 1,
+  fontFamily: '"Karla", sans-serif',
+  chartPalette: ['#4F46E5', '#E4483D', '#10B981', '#F59E0B', '#06B6D4', '#EC4899', '#8B5CF6', '#14161A'],
+  colors: {
+    primary: '#4F46E5',
+    onPrimary: '#FFFFFF',
+    primaryContainer: '#EEF0FF',
+    onPrimaryContainer: '#33279E',
+    tertiary: '#E4483D',
+    surface: '#FFFFFF',
+    surfaceContainerLow: '#F6F7F9',
+    surfaceContainerHigh: '#EFF1F5',
+    surfaceContainerHighest: '#E4E6EA',
+    outline: '#9498A0',
+    outlineVariant: '#E4E6EA',
+  },
+};
+
+/** **Dark** — {@link light}'s exact pair: same indigo accent family and radius, inverted surfaces. The standard dark default, not the showy one — see {@link techno} for that. */
+export const dark: ArtifactsThemeData = {
+  cardRadius: 12,
+  cardPadding: '12px',
+  cardBorderWidth: 1,
+  cardBackground: '#1A1C20',
+  cardBorderColor: '#2A2D33',
+  cardShadow: '0px 10px 24px -12px rgba(0,0,0,0.5)',
+  badgeBackground: '#23263A',
+  badgeForeground: '#A5B4FC',
+  labelFontSize: 10,
+  headerFontSize: 12.5,
+  valueFontSize: 28,
+  codeFontSize: 12,
+  fontScale: 1,
+  spacingScale: 1,
+  fontFamily: '"Karla", sans-serif',
+  chartPalette: ['#818CF8', '#F87171', '#34D399', '#FBBF24', '#38BDF8', '#F472B6', '#A78BFA', '#F2F3F5'],
+  colors: {
+    primary: '#818CF8',
+    onPrimary: '#14161A',
+    primaryContainer: '#23263A',
+    onPrimaryContainer: '#C7D2FE',
+    tertiary: '#F87171',
+    surface: '#1A1C20',
+    surfaceContainerLow: '#202226',
+    surfaceContainerHigh: '#26292F',
+    surfaceContainerHighest: '#2E3138',
+    outline: '#74777F',
+    outlineVariant: '#2A2D33',
+  },
+};
+
+/** **Riviera** — the showcase's original identity. Light, editorial: warm off-white surfaces, a gold accent, generous rounded corners. */
+export const riviera: ArtifactsThemeData = {
+  cardRadius: 16,
+  cardPadding: '12px',
+  cardBorderWidth: 1.5,
+  cardBackground: '#FFFFFF',
+  cardBorderColor: '#EDEBE5',
+  cardShadow: '0px 10px 24px -12px rgba(23,26,29,0.18)',
+  badgeBackground: '#FDF7EC',
+  badgeForeground: '#171A1D',
+  labelFontSize: 10,
+  headerFontSize: 12.5,
+  valueFontSize: 28,
+  codeFontSize: 12,
+  fontScale: 1,
+  spacingScale: 1,
+  fontFamily: '"Karla", sans-serif',
+  chartPalette: ['#E3A94F', '#F1633B', '#4E7D5E', '#3C6E82', '#C97F49', '#6B6270', '#A6572F', '#171A1D'],
+  colors: {
+    primary: '#171A1D',
+    onPrimary: '#FFFFFF',
+    primaryContainer: '#FDF7EC',
+    onPrimaryContainer: '#171A1D',
+    tertiary: '#E3A94F',
+    surface: '#FFFFFF',
+    surfaceContainerLow: '#F5F3EE',
+    surfaceContainerHigh: '#F0EDE5',
+    surfaceContainerHighest: '#EDEBE5',
+    outline: '#9CA0A6',
+    outlineVariant: '#EDEBE5',
+  },
+};
+
+/** **Techno** — modern and vibrant, kept in check: one cool accent duo (violet + teal), not several competing neons. Shares {@link ledger}'s monospace font and squared-off corners. */
+export const techno: ArtifactsThemeData = {
+  cardRadius: 5,
+  cardPadding: '12px',
+  cardBorderWidth: 1,
+  cardBackground: '#16181C',
+  cardBorderColor: '#262A31',
+  cardShadow: '0px 10px 26px -12px rgba(0,0,0,0.55)',
+  badgeBackground: '#201C3E',
+  badgeForeground: '#7C7CFF',
+  labelFontSize: 10,
+  headerFontSize: 12.5,
+  valueFontSize: 28,
+  codeFontSize: 12,
+  fontScale: 1,
+  spacingScale: 1,
+  fontFamily: '"JetBrains Mono", monospace',
+  chartPalette: ['#7C7CFF', '#34D5C4', '#F5A623', '#FF6F91', '#5EEAD4', '#C7C4FF', '#4ADE80', '#E8EAED'],
+  colors: {
+    primary: '#7C7CFF',
+    onPrimary: '#0D0E10',
+    primaryContainer: '#201C3E',
+    onPrimaryContainer: '#C7C4FF',
+    tertiary: '#34D5C4',
+    surface: '#16181C',
+    surfaceContainerLow: '#1B1E23',
+    surfaceContainerHigh: '#21252B',
+    surfaceContainerHighest: '#262A31',
+    outline: '#6B707A',
+    outlineVariant: '#262A31',
+  },
+};
+
+/** **Ledger** — the odd one out on purpose: sharp-cornered, print/boarding-pass counterpoint to the other four's rounding. Warm paper white, a burnt-orange "ink stamp" accent. */
+export const ledger: ArtifactsThemeData = {
+  cardRadius: 3,
+  cardPadding: '12px',
+  cardBorderWidth: 1,
+  cardBackground: '#FAF9F5',
+  cardBorderColor: '#D8D6CC',
+  cardShadow: '0px 6px 16px -10px rgba(26,26,24,0.2)',
+  badgeBackground: '#F1EFE6',
+  badgeForeground: '#B34700',
+  labelFontSize: 9.5,
+  headerFontSize: 11.5,
+  valueFontSize: 26,
+  codeFontSize: 12,
+  fontScale: 1,
+  spacingScale: 1,
+  fontFamily: '"JetBrains Mono", monospace',
+  chartPalette: ['#B34700', '#B3261E', '#3A5A40', '#1A1A18', '#8C8C82', '#6B4F2A', '#D8D6CC', '#5A5A52'],
+  colors: {
+    primary: '#B34700',
+    onPrimary: '#FAF9F5',
+    primaryContainer: '#F1EFE6',
+    onPrimaryContainer: '#7A3000',
+    tertiary: '#B3261E',
+    surface: '#FAF9F5',
+    surfaceContainerLow: '#F1EFE6',
+    surfaceContainerHigh: '#E9E6D9',
+    surfaceContainerHighest: '#D8D6CC',
+    outline: '#8C8C82',
+    outlineVariant: '#D8D6CC',
+  },
+};
+
 /** All available themes keyed by display name. */
 export const ARTIFACTS_THEMES: Record<string, ArtifactsThemeData> = {
   Neutral: neutral,
@@ -177,6 +349,11 @@ export const ARTIFACTS_THEMES: Record<string, ArtifactsThemeData> = {
   Agentivity: agentivity,
   'Agentivity Light': agentivityLight,
   'Agentivity Dark': agentivityDark,
+  Light: light,
+  Dark: dark,
+  Riviera: riviera,
+  Techno: techno,
+  Ledger: ledger,
 };
 
 /** Recommended color-scheme ('light' | 'dark') for each theme. */
@@ -194,4 +371,9 @@ export const ARTIFACTS_THEME_BRIGHTNESS: Record<string, 'light' | 'dark'> = {
   Agentivity: 'light',
   'Agentivity Light': 'light',
   'Agentivity Dark': 'dark',
+  Light: 'light',
+  Dark: 'dark',
+  Riviera: 'light',
+  Techno: 'dark',
+  Ledger: 'light',
 };
