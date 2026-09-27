@@ -120,6 +120,42 @@
   border: 0;
 }
 
+/* Team roster & graph color tokens — default to the same theme-driven --ag-* custom properties
+   ArtifactsThemeProvider already sets from whatever ArtifactsThemeData is active (see theme.ts's
+   themeToCssVars), rather than a fixed light-mode hex. This is what makes every built-in dark
+   preset (agentivityDark, noir, aurora, velvet, ember, terminal) — and any future one — correctly
+   theme the roster/graph out of the box, with zero per-app CSS: an app using one of those already
+   gets a dark card/surface, so the team graph now automatically follows instead of staying white
+   regardless of the surrounding theme (confirmed in production: an app-level dark theme left the
+   graph's hexagons and the group badge pills white, and a roster member's idle status ring
+   invisible against its own dark card — both bugs, not a themeable variation). An app can still
+   point any of these at its own tokens directly (as this SDK's own showcase app does, e.g.
+   `--ag-team-working: var(--coral)`), which simply overrides the alias below.
+
+   Declared on these two component roots, not :root: a `var(--ag-surface, #fff)` fallback
+   resolves against whatever --ag-surface is inherited AT THE ELEMENT THE RULE MATCHES, computed
+   once there and then inherited by VALUE from that point down — not re-evaluated further down
+   the tree. ArtifactsThemeProvider sets --ag-surface (and the rest of theme.ts's --ag-* tokens)
+   on a wrapper div INSIDE the tree, not on :root, so a :root rule here would resolve its
+   fallback before that div's --ag-surface even exists and lock in #fff regardless of theme
+   (confirmed: this was tried first and silently produced exactly that). `.ag-team-roster` and
+   `.ag-team-graph` are themselves rendered inside that wrapper, so declaring the alias there
+   instead resolves against the real, already-themed value. */
+.ag-team-roster,
+.ag-team-graph {
+  --ag-team-surface: var(--ag-surface, #fff);
+  --ag-team-bg: var(--ag-surface, #fff);
+  --ag-team-node-fill: var(--ag-surface, #fff);
+  --ag-team-node-stroke: var(--ag-outline-variant, #c8ccd4);
+  --ag-team-muted: var(--ag-outline, #64748b);
+  --ag-team-working: var(--ag-tertiary, #f1633b);
+  --ag-team-waiting: var(--ag-primary, #e3a94f);
+  --ag-team-idle: var(--ag-outline-variant, #c8ccd4);
+  /* Not aliased to a theme token: "done" reads as success everywhere, in every theme, the same
+     way a green checkmark does — tying it to an accent color would fight that at-a-glance meaning. */
+  --ag-team-done: #10b981;
+}
+
 /* Team roster: one avatar per member, ringed by live status. Override --ag-team-* to retheme. */
 .ag-team-roster {
   display: flex;
@@ -156,6 +192,16 @@
 
 .ag-team-roster__member[data-status='idle'] {
   opacity: 0.4;
+}
+
+/* Idle has no status color to show — its badge is a transparent circle outlined only in
+   --ag-team-surface, meant to blend into the surrounding card. Confirmed in production: on a
+   dark theme (card and page similar but not identical darks) that ring reads instead as a
+   stray dark notch bitten out of the avatar. There is nothing this ring is supposed to
+   communicate while idle, so don't draw it at all — working/waiting/done below re-enable it
+   with their own color the moment there's an actual status to show. */
+.ag-team-roster__member[data-status='idle'] .ag-team-roster__badge {
+  display: none;
 }
 
 .ag-team-roster__member[data-status='working'] .ag-team-roster__avatar {
