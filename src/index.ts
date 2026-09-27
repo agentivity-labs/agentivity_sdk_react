@@ -104,7 +104,7 @@ export * from './client/extras/ag-ui-bundle-models.js';
 // ── Chat: state (AG-UI event-driven) ─────────────────────────────────────────
 export * from './chat/chat-models.js';
 export { ChatController } from './chat/chat-controller.js';
-export type { ActiveChatMember } from './chat/chat-controller.js';
+export type { ActiveChatMember, TeamMemberStatus } from './chat/chat-controller.js';
 
 // ── Chat: components ──────────────────────────────────────────────────────────
 export { ChatDiscussion } from './chat/components/ChatDiscussion.js';
@@ -117,6 +117,24 @@ export { ChatActiveMemberIndicator } from './chat/components/ChatActiveMemberInd
 export type { ChatActiveMemberIndicatorProps } from './chat/components/ChatActiveMemberIndicator.js';
 export { MemberAvatar, resolveMemberAvatar } from './chat/components/member-avatar.js';
 export type { AgUiChatMember, AgUiMemberAvatar } from './chat/components/member-avatar.js';
+export { TeamRoster } from './chat/components/TeamRoster.js';
+export type { TeamRosterProps } from './chat/components/TeamRoster.js';
+export { TeamGraph } from './chat/components/TeamGraph.js';
+export type { TeamGraphProps } from './chat/components/TeamGraph.js';
+export type { AgUiTeamMember } from './chat/components/team-member.js';
+export { teamMembersFromStructure, teamHubMemberId, teamAvatarResolver, teamMemberShortName } from './chat/components/team-member.js';
+export { TEAM_GROUP_PALETTE, teamGroupKey, teamGroupColors, groupColorOverrides, orderByGroup } from './chat/components/team-groups.js';
+export { parseTeamStructure, teamManager } from './client/domain/team-definition-models.js';
+export type { TeamStructure, TeamMemberPosition, TeamConnectionDefinition } from './client/domain/team-definition-models.js';
+
+// Icons: a reference (the backend's NodeIconDef shape), its renderer, and the catalog a picker reads.
+export { MATERIAL_TYPE, materialIcon, parseIconRef } from './icons/icon-ref.js';
+export type { IconRef } from './icons/icon-ref.js';
+export { Icon, iconGlyph } from './icons/Icon.js';
+export type { IconProps } from './icons/Icon.js';
+export { parseIconInfo, iconRefOf } from './icons/icon-catalog-models.js';
+export type { IconInfo } from './icons/icon-catalog-models.js';
+export { IconsApi } from './client/api/icons-api.js';
 
 // ── Artifacts: widget registry + bundle ──────────────────────────────────────
 export type { AgUiComponentBuilder, AgUiWidgetRegistry } from './artifacts/widget-registry.js';

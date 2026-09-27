@@ -108,6 +108,308 @@
   30% { opacity: 1; transform: translateY(-2px); }
 }
 
+.ag-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Team roster: one avatar per member, ringed by live status. Override --ag-team-* to retheme. */
+.ag-team-roster {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 2px;
+}
+
+.ag-team-roster__member {
+  position: relative;
+  flex-shrink: 0;
+  transition: opacity 0.2s ease;
+}
+
+.ag-team-roster__avatar {
+  width: 28px;
+  height: 28px;
+  font-size: 14px;
+  box-sizing: border-box;
+  border: 2px solid transparent;
+}
+
+.ag-team-roster__badge {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  box-sizing: border-box;
+  border: 2px solid var(--ag-team-surface, #fff);
+  background: transparent;
+}
+
+.ag-team-roster__member[data-status='idle'] {
+  opacity: 0.4;
+}
+
+.ag-team-roster__member[data-status='working'] .ag-team-roster__avatar {
+  border-color: var(--ag-team-working, #f1633b);
+  animation: ag-team-pulse 1.4s ease-in-out infinite;
+}
+
+.ag-team-roster__member[data-status='working'] .ag-team-roster__badge {
+  background: var(--ag-team-working, #f1633b);
+}
+
+.ag-team-roster__member[data-status='waiting'] .ag-team-roster__badge {
+  background: var(--ag-team-waiting, #e3a94f);
+}
+
+.ag-team-roster__member[data-status='done'] .ag-team-roster__badge {
+  background: var(--ag-team-done, #10b981);
+}
+
+/* Team graph: a constellation — the hub in the middle, one branch per group in the group's color. */
+/* The graph fills its box. By default the box is as wide as its parent at the design aspect ratio; give it a height (or make
+   it a flex item that grows) and the graph spreads to fill that instead. */
+.ag-team-graph-fit {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 400 / 380;
+  min-height: 0;
+}
+
+.ag-team-graph {
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* Dragging and pinching move the graph, not the page. */
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+}
+
+.ag-team-graph:active {
+  cursor: grabbing;
+}
+
+/* The way back to the fitted view. */
+.ag-team-graph__fit {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 18px;
+  color: var(--ag-team-muted, #64748b);
+  background: var(--ag-team-bg, #fff);
+  border: 1px solid var(--ag-team-node-stroke, #c8ccd4);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.ag-team-graph__fit:hover {
+  color: inherit;
+}
+
+.ag-team-graph__fit:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+/* Agents are switched off — grey and dim — until the run needs them, then light up in their group's color; the one at work
+   blinks slowly. A graph with `restingColors` shows them in color while nothing is running. */
+.ag-team-graph__node {
+  transition: filter 0.4s ease, opacity 0.4s ease;
+}
+
+.ag-team-graph__node[data-status='idle'] {
+  filter: grayscale(1);
+  opacity: 0.5;
+}
+
+.ag-team-graph__node[data-status='working'] {
+  animation: ag-team-blink 2.6s ease-in-out infinite;
+}
+
+@keyframes ag-team-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+.ag-team-graph[data-resting='true'][data-run='none'] .ag-team-graph__node[data-status='idle'] {
+  filter: none;
+  opacity: 1;
+}
+
+.ag-team-graph[data-resting='true'][data-run='none'] .ag-team-graph__edge {
+  stroke-dasharray: none;
+  stroke-width: 1.5;
+  opacity: 0.6;
+}
+
+.ag-team-graph[data-resting='true'][data-run='none'] .ag-team-graph__edge.ag-team-graph__edge--trunk {
+  stroke-width: 2.4;
+}
+
+.ag-team-graph[data-resting='true'][data-run='none'] .ag-team-graph__junction {
+  opacity: 1;
+}
+
+.ag-team-graph__edge.ag-team-graph__edge--trunk {
+  stroke-width: 1.6;
+}
+
+/* A link is drawn in its branch's color: faint and dotted until its member is in the run, then solid. */
+.ag-team-graph__edge {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1;
+  stroke-linecap: round;
+  stroke-dasharray: 1.5 4;
+  opacity: 0.35;
+}
+
+.ag-team-graph__edge[data-status='done'] {
+  stroke-width: 1.8;
+  stroke-dasharray: none;
+  opacity: 1;
+}
+
+.ag-team-graph__edge[data-status='waiting'] {
+  stroke-width: 1.8;
+  stroke-dasharray: none;
+  opacity: 0.75;
+}
+
+.ag-team-graph__edge[data-status='working'] {
+  stroke-width: 2.4;
+  stroke-dasharray: 6 4;
+  opacity: 1;
+  animation: ag-team-flow 0.9s linear infinite;
+}
+
+/* The zone behind a group: its members' positions thickened into one soft rounded shape. */
+.ag-team-graph__zone {
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 46;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.11;
+}
+
+.ag-team-graph__zone line,
+.ag-team-graph__zone polyline {
+  fill: none;
+}
+
+.ag-team-graph__junction {
+  fill: currentColor;
+  opacity: 0.4;
+}
+
+.ag-team-graph__junction:not([data-status='idle']) {
+  opacity: 1;
+}
+
+.ag-team-graph__pill {
+  fill: var(--ag-team-bg, #fff);
+  stroke: currentColor;
+  stroke-opacity: 0.55;
+  stroke-width: 1;
+}
+
+.ag-team-graph__pill-dot {
+  fill: currentColor;
+}
+
+.ag-team-graph__group {
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  fill: currentColor;
+}
+
+.ag-team-graph__count {
+  font-size: 8.5px;
+  font-weight: 500;
+  fill: var(--ag-team-muted, #94a3b8);
+}
+
+.ag-team-graph__node[data-status='idle'] {
+  opacity: 0.45;
+}
+
+.ag-team-graph__backing {
+  fill: var(--ag-team-node-fill, #fff);
+}
+
+/* A member is a hexagon (like Team Studio): its border and icon wear the group's color, the fill stays neutral. */
+.ag-team-graph__hex {
+  fill: var(--ag-team-node-fill, #fff);
+  stroke: var(--ag-team-node-stroke, #c8ccd4);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+
+.ag-team-graph__hex--outline {
+  fill: none;
+}
+
+.ag-team-graph__glyph {
+  fill: currentColor;
+}
+
+.ag-team-graph__ring {
+  stroke: transparent;
+  stroke-width: 2.5;
+}
+
+.ag-team-graph__node[data-status='working'] .ag-team-graph__ring {
+  stroke: var(--ag-team-working, #f1633b);
+}
+
+.ag-team-graph__node[data-status='waiting'] .ag-team-graph__ring {
+  stroke: var(--ag-team-waiting, #e3a94f);
+}
+
+.ag-team-graph__node[data-status='done'] .ag-team-graph__ring {
+  stroke: var(--ag-team-done, #10b981);
+}
+
+.ag-team-graph__label {
+  font-size: 8.5px;
+  fill: currentColor;
+}
+
+@keyframes ag-team-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+@keyframes ag-team-flow {
+  to { stroke-dashoffset: -20; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ag-team-roster__member[data-status='working'] .ag-team-roster__avatar,
+  .ag-team-graph__node[data-status='working'],
+  .ag-team-graph__edge[data-status='working'] {
+    animation: none;
+  }
+}
+
 .ag-chat-bubble {
   max-width: 72%;
   min-width: 0;
@@ -363,4 +665,36 @@
 @keyframes ag-connection-status-pulse {
   0%, 100% { opacity: 0.35; }
   50% { opacity: 1; }
+}
+
+/* Icons: Material Icons (the font Flutter bundles), drawn by code point — see src/icons/Icon.tsx. */
+@font-face {
+  font-family: 'Agentivity Material Icons';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('./material-icons.woff2') format('woff2');
+}
+
+.ag-icon {
+  font-family: 'Agentivity Material Icons';
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+  direction: ltr;
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  text-align: center;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+text.ag-icon {
+  display: inline;
+  width: auto;
+  height: auto;
 }

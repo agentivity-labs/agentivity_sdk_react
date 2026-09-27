@@ -23,7 +23,7 @@
     "**/*.css"
   ],
   "scripts": {
-    "build": "tsup && node -e \"require('fs').copyFileSync('src/styles.css','dist/styles.css')\"",
+    "build": "tsup && node -e \"require('fs').copyFileSync('src/styles.css','dist/styles.css');require('fs').copyFileSync('src/icons/material-icons.woff2','dist/material-icons.woff2')\"",
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

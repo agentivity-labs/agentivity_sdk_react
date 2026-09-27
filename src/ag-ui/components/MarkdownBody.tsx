@@ -29,6 +29,11 @@ export function MarkdownBody({ data, textColor, linkColor, className }: Markdown
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
+          // Every other element below gets an explicit style reset — <p> was the one left on the
+          // browser's default UA margin (~1em top AND bottom), which towers over the compact spacing
+          // used everywhere else here (line-height 1.35, 2-4px block margins). A message with more
+          // than one paragraph showed a large, unintended gap between them because of this one gap.
+          p: (props) => <p {...props} style={{ margin: '0.4em 0' }} />,
           a: (props) => <a {...props} style={{ color: link }} />,
           code: (props) => {
             const { className: codeClassName, children, ...rest } = props;

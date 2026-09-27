@@ -1,3 +1,6 @@
+import { Icon } from '../../icons/Icon.js';
+import type { IconRef } from '../../icons/icon-ref.js';
+
 /** Identity of a team member/agent whose turn is being rendered (active-member indicator or a message's speaker label). */
 export interface AgUiChatMember {
   memberEntityId?: string;
@@ -6,12 +9,14 @@ export interface AgUiChatMember {
 
 /**
  * What to render for a member's avatar. All fields optional — an app can supply
- * whichever it has (`imageUrl` wins if present, then `emoji`, then initials).
+ * whichever it has (`imageUrl` wins if present, then `emoji`, then a catalog `icon`, then initials).
  * `color` styles the background when no `imageUrl` is given.
  */
 export interface AgUiMemberAvatar {
   imageUrl?: string;
   emoji?: string;
+  /** An icon of the platform's catalog (`{ type: 'material', value: 'E297' }` — see {@link Icon}). One this SDK does not draw is ignored, and the avatar falls back to initials. */
+  icon?: IconRef;
   color?: string;
   initials?: string;
 }
@@ -47,6 +52,7 @@ export function resolveMemberAvatar(member: AgUiChatMember, resolver?: (member: 
   return {
     imageUrl: resolved?.imageUrl,
     emoji: resolved?.emoji,
+    icon: resolved?.icon,
     color: resolved?.color ?? fallbackColor,
     initials: resolved?.initials ?? fallbackInitials,
   };
@@ -60,7 +66,7 @@ export function MemberAvatar({ member, resolver, className }: { member: AgUiChat
   }
   return (
     <span className={cx('ag-chat-member-avatar', className)} style={{ background: avatar.color }}>
-      {avatar.emoji ?? avatar.initials}
+      {!avatar.emoji && avatar.icon ? <Icon icon={avatar.icon} fallback={avatar.initials} /> : (avatar.emoji ?? avatar.initials)}
     </span>
   );
 }

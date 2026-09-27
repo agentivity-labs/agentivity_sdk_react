@@ -2,6 +2,7 @@ import { AgentivityHttpCore } from '../http-core.js';
 import { type EntityUnit, parseEntityUnit } from '../domain/entity-models.js';
 import { parseAgentSummary, parseAgenticBrowseCurrent, parseAgenticFolder, parseCatalogBrowseItem, type AgentSummary, type AgenticBrowseLevel } from '../domain/agent-models.js';
 import { parseTeam, type Team } from '../domain/team-folder-models.js';
+import { parseTeamStructure, type TeamStructure } from '../domain/team-definition-models.js';
 import { parseWorkflowEntity, type WorkflowEntity } from '../domain/workflow-models.js';
 
 function asArray(value: unknown): unknown[] {
@@ -69,6 +70,15 @@ export class EntitiesApi {
     });
     const items = Array.isArray(data) ? data : data && typeof data === 'object' ? (data as Record<string, unknown>)['items'] : undefined;
     return asRecords(items).map(parseTeam);
+  }
+
+  /**
+   * A team's saved definition — members (with the icon and group set in the team editor), connections and manager.
+   * GET /api/v1/agentic/teams/{teamId}
+   */
+  async fetchTeam(teamId: string): Promise<TeamStructure> {
+    const data = await this.c.get<Record<string, unknown>>(AgentivityHttpCore.v1(`/agentic/teams/${teamId.trim()}`));
+    return parseTeamStructure(data ?? {});
   }
 
   /** Note: returns identification/listing fields only — see {@link WorkflowEntity}. */
