@@ -9,6 +9,13 @@ export interface ActiveChatMember {
   displayName?: string;
 }
 
+/**
+ * Where a Team member stands in the conversation, from its own `STEP_STARTED`/`STEP_FINISHED`:
+ * `working` while it takes its turn, `waiting` if the run paused (a human question) while it was
+ * mid-turn, `done` once its turn ended. A member that has not appeared yet has no entry.
+ */
+export type TeamMemberStatus = 'working' | 'waiting' | 'done';
+
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
@@ -49,6 +56,8 @@ export class ChatController {
   private isAwaitingResponseState = false;
   private pendingHilGateState: ChatHilGate | undefined;
   private activeMemberState: ActiveChatMember | undefined;
+  // Replaced (never mutated) on every change so it is a stable useSyncExternalStore snapshot.
+  private memberStatusesState: ReadonlyMap<string, TeamMemberStatus> = new Map();
 
   constructor(args: { contextId?: string } = {}) {
     this.contextId = args.contextId ?? '';
@@ -86,6 +95,32 @@ export class ChatController {
    */
   get activeMember(): ActiveChatMember | undefined {
     return this.activeMemberState;
+  }
+
+  /**
+   * Status of every Team member seen so far, keyed by `memberEntityId` — empty for a standalone
+   * Agent. Powers `TeamRoster` and `TeamGraph`; a new Map instance on every change.
+   */
+  get memberStatuses(): ReadonlyMap<string, TeamMemberStatus> {
+    return this.memberStatusesState;
+  }
+
+  private setMemberStatus(memberEntityId: string, status: TeamMemberStatus): void {
+    const next = new Map(this.memberStatusesState);
+    next.set(memberEntityId, status);
+    this.memberStatusesState = next;
+  }
+
+  // A run that ends mid-turn leaves its member 'working' with nothing to show for it: paused on a human
+  // question it is 'waiting', otherwise (finished, errored) its turn is over.
+  private settleWorkingMembers(interrupted: boolean): void {
+    let next: Map<string, TeamMemberStatus> | undefined;
+    for (const [id, status] of this.memberStatusesState) {
+      if (status !== 'working') continue;
+      next ??= new Map(this.memberStatusesState);
+      next.set(id, interrupted ? 'waiting' : 'done');
+    }
+    if (next) this.memberStatusesState = next;
   }
 
   /** Returns locally-cached messages for `threadId` (stable reference until it changes). */
@@ -146,6 +181,7 @@ export class ChatController {
     this.pendingHilGateState = undefined;
     this.isAwaitingResponseState = false;
     this.activeMemberState = undefined;
+    this.memberStatusesState = new Map();
     this.inProgress.clear();
     this.inProgressThreadId.clear();
     this.notify();
@@ -164,6 +200,7 @@ export class ChatController {
       case 'RUN_FINISHED': {
         this.isAwaitingResponseState = false;
         this.activeMemberState = undefined;
+        this.settleWorkingMembers(event.outcome?.kind === 'interrupt');
         if (event.outcome?.kind === 'interrupt') {
           for (const interrupt of event.outcome.interrupts) {
             if (interrupt.reason === 'chat_hil_gate' || interrupt.reason.startsWith('chat')) {
@@ -185,6 +222,7 @@ export class ChatController {
       case 'RUN_ERROR':
         this.isAwaitingResponseState = false;
         this.activeMemberState = undefined;
+        this.settleWorkingMembers(false);
         this.notify();
         break;
 
@@ -198,13 +236,15 @@ export class ChatController {
       case 'STEP_STARTED':
         if (event.memberEntityId || event.displayName) {
           this.activeMemberState = { memberEntityId: event.memberEntityId, displayName: event.displayName };
+          if (event.memberEntityId) this.setMemberStatus(event.memberEntityId, 'working');
           this.notify();
         }
         break;
 
       case 'STEP_FINISHED':
-        if (this.activeMemberState) {
+        if (this.activeMemberState || event.memberEntityId) {
           this.activeMemberState = undefined;
+          if (event.memberEntityId) this.setMemberStatus(event.memberEntityId, 'done');
           this.notify();
         }
         break;

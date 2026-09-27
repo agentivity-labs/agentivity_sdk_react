@@ -1,5 +1,6 @@
 import { AgentivityHttpCore } from './http-core.js';
 import { EntitiesApi } from './api/entities-api.js';
+import { IconsApi } from './api/icons-api.js';
 import { RunsApi } from './api/runs-api.js';
 import { VoiceApi } from './api/voice-api.js';
 import { ConversationsApi } from './api/conversations-api.js';
@@ -27,6 +28,8 @@ export class AgentivityClient {
 
   /** Entity discovery: list and browse agents, teams, and workflows. */
   readonly entities: EntitiesApi;
+  /** The catalog of icons a user can choose from (any icon picker reads it). */
+  readonly icons: IconsApi;
   /** Run lifecycle: start executions, manage HIL, send interactions, open SSE streams. */
   readonly runs: RunsApi;
   /** Server-side voice transcription for chat dictation. */
@@ -41,6 +44,7 @@ export class AgentivityClient {
   constructor(args: { baseUrl: string; fetchImpl?: typeof fetch }) {
     this.http = new AgentivityHttpCore(args);
     this.entities = new EntitiesApi(this.http);
+    this.icons = new IconsApi(this.http);
     this.runs = new RunsApi(this.http);
     this.voice = new VoiceApi(this.http);
     this.conversations = new ConversationsApi(this.http);
