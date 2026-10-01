@@ -14,7 +14,15 @@ export interface ActiveChatMember {
  * `working` while it takes its turn, `waiting` if the run paused (a human question) while it was
  * mid-turn, `done` once its turn ended. A member that has not appeared yet has no entry.
  */
-export type TeamMemberStatus = 'working' | 'waiting' | 'done';
+export type TeamMemberStatus = 'working' | 'waiting' | 'done' | 'failed';
+
+/**
+ * Where a Workflow node stands in the run, from its own `STEP_STARTED`/`STEP_FINISHED`'s
+ * `stepName` (the node's id) — same three states as {@link TeamMemberStatus}, kept as its own
+ * type since the two are unrelated concepts that happen to share a shape. A node not reached
+ * yet has no entry.
+ */
+export type WorkflowStepStatus = 'working' | 'waiting' | 'done' | 'failed';
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
@@ -58,6 +66,10 @@ export class ChatController {
   private activeMemberState: ActiveChatMember | undefined;
   // Replaced (never mutated) on every change so it is a stable useSyncExternalStore snapshot.
   private memberStatusesState: ReadonlyMap<string, TeamMemberStatus> = new Map();
+  // Same shape as memberStatusesState, keyed by stepName instead of memberEntityId — set
+  // unconditionally (a standalone Agent/Workflow's STEP_STARTED never carries member identity,
+  // but always carries stepName). Powers WorkflowGraph.
+  private stepStatusesState: ReadonlyMap<string, WorkflowStepStatus> = new Map();
 
   constructor(args: { contextId?: string } = {}) {
     this.contextId = args.contextId ?? '';
@@ -105,10 +117,24 @@ export class ChatController {
     return this.memberStatusesState;
   }
 
+  /**
+   * Status of every Workflow node reached so far, keyed by `stepName` (its node id) — empty for
+   * a Team/Agent run. Powers `WorkflowGraph`; a new Map instance on every change.
+   */
+  get stepStatuses(): ReadonlyMap<string, WorkflowStepStatus> {
+    return this.stepStatusesState;
+  }
+
   private setMemberStatus(memberEntityId: string, status: TeamMemberStatus): void {
     const next = new Map(this.memberStatusesState);
     next.set(memberEntityId, status);
     this.memberStatusesState = next;
+  }
+
+  private setStepStatus(stepName: string, status: WorkflowStepStatus): void {
+    const next = new Map(this.stepStatusesState);
+    next.set(stepName, status);
+    this.stepStatusesState = next;
   }
 
   // A run that ends mid-turn leaves its member 'working' with nothing to show for it: paused on a human
@@ -121,6 +147,17 @@ export class ChatController {
       next.set(id, interrupted ? 'waiting' : 'done');
     }
     if (next) this.memberStatusesState = next;
+  }
+
+  /** Same idea as {@link settleWorkingMembers}, for {@link stepStatusesState}. */
+  private settleWorkingSteps(interrupted: boolean): void {
+    let next: Map<string, WorkflowStepStatus> | undefined;
+    for (const [id, status] of this.stepStatusesState) {
+      if (status !== 'working') continue;
+      next ??= new Map(this.stepStatusesState);
+      next.set(id, interrupted ? 'waiting' : 'done');
+    }
+    if (next) this.stepStatusesState = next;
   }
 
   /** Returns locally-cached messages for `threadId` (stable reference until it changes). */
@@ -182,6 +219,7 @@ export class ChatController {
     this.isAwaitingResponseState = false;
     this.activeMemberState = undefined;
     this.memberStatusesState = new Map();
+    this.stepStatusesState = new Map();
     this.inProgress.clear();
     this.inProgressThreadId.clear();
     this.notify();
@@ -201,6 +239,7 @@ export class ChatController {
         this.isAwaitingResponseState = false;
         this.activeMemberState = undefined;
         this.settleWorkingMembers(event.outcome?.kind === 'interrupt');
+        this.settleWorkingSteps(event.outcome?.kind === 'interrupt');
         if (event.outcome?.kind === 'interrupt') {
           for (const interrupt of event.outcome.interrupts) {
             if (interrupt.reason === 'chat_hil_gate' || interrupt.reason.startsWith('chat')) {
@@ -223,6 +262,7 @@ export class ChatController {
         this.isAwaitingResponseState = false;
         this.activeMemberState = undefined;
         this.settleWorkingMembers(false);
+        this.settleWorkingSteps(false);
         this.notify();
         break;
 
@@ -230,24 +270,28 @@ export class ChatController {
         this.handleCustomEvent(event.name, event.value);
         break;
 
-      // Team member turn boundaries → drive activeMember (only set on events that carry
-      // member identity; a standalone Agent's STEP_STARTED/STEP_FINISHED never do, so
-      // activeMember simply never gets set for it).
+      // Turn boundaries → drive activeMember (Team runs only — needs member identity) and
+      // stepStatuses (any run — stepName is always present, so this fires for a Workflow's
+      // node-by-node progress too, not just a Team's member turns).
       case 'STEP_STARTED':
+        if (event.stepName) this.setStepStatus(event.stepName, 'working');
         if (event.memberEntityId || event.displayName) {
           this.activeMemberState = { memberEntityId: event.memberEntityId, displayName: event.displayName };
           if (event.memberEntityId) this.setMemberStatus(event.memberEntityId, 'working');
-          this.notify();
         }
+        if (event.stepName || this.activeMemberState) this.notify();
         break;
 
-      case 'STEP_FINISHED':
-        if (this.activeMemberState || event.memberEntityId) {
+      case 'STEP_FINISHED': {
+        if (event.stepName) this.setStepStatus(event.stepName, 'done');
+        const hadActiveMember = this.activeMemberState || event.memberEntityId;
+        if (hadActiveMember) {
           this.activeMemberState = undefined;
           if (event.memberEntityId) this.setMemberStatus(event.memberEntityId, 'done');
-          this.notify();
         }
+        if (event.stepName || hadActiveMember) this.notify();
         break;
+      }
 
       // Streaming text messages → accumulate into the active thread
       case 'TEXT_MESSAGE_START': {

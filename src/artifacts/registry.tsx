@@ -18,6 +18,7 @@ import { DatePickerCard } from './components/interaction/DatePickerCard.js';
 import { QuestionForm } from './components/interaction/QuestionForm.js';
 import { RatingCard } from './components/interaction/RatingCard.js';
 import { SummaryCard } from './components/interaction/SummaryCard.js';
+import { SourceInput } from './components/interaction/SourceInput.js';
 
 /**
  * Returns the built-in type → builder map — port of `buildArtifactsRegistry`.
@@ -60,5 +61,6 @@ export function buildArtifactsRegistry(): AgUiWidgetRegistry {
     RatingCard: (props) => <RatingCard props={props} />,
     DatePickerCard: (props) => <DatePickerCard props={props} />,
     SummaryCard: (props) => <SummaryCard props={props} />,
+    SourceInput: (props) => <SourceInput props={props} />,
   };
 }

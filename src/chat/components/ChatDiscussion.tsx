@@ -21,6 +21,18 @@ export interface ChatDiscussionProps {
    */
   onHilResponse?: (gate: ChatHilGate, text: string, source: string) => void | Promise<void>;
   /**
+   * Called when the user presses the stop button in the input box — the interrupt every chat app offers while a model is
+   * working. Providing it turns the send button into a stop button for as long as a run is in progress; the app cancels
+   * the run (e.g. `client.runs.cancelExecution`). Off by default: without it the input behaves as before.
+   */
+  onStop?: () => void | Promise<void>;
+  /**
+   * Whether the app knows a run is in progress (drives the stop button), e.g. from `useExecutionStatuses`, which is right on a
+   * reopened execution too. Combined with what the stream reports (`controller.isAwaitingResponse`): either one is enough,
+   * since an execution's status API does not always report a resumed team as running yet.
+   */
+  running?: boolean;
+  /**
    * Shows a "member at work" indicator (avatar + name + animated dots) above the input
    * while a Team member is taking its turn (driven by `controller.activeMember`). Off by
    * default; has no effect for a standalone Agent, which never sets `activeMember`.
@@ -64,6 +76,8 @@ export function ChatDiscussion({
   widgetRegistry,
   onSend,
   onHilResponse,
+  onStop,
+  running: runningProp,
   showActiveMemberIndicator = false,
   showSpeakerLabels = false,
   resolveMemberAvatar,
@@ -80,11 +94,22 @@ export function ChatDiscussion({
   const threads = useSyncExternalStore(controller.subscribe, () => controller.threads);
   const pendingHilGate = useSyncExternalStore(controller.subscribe, () => controller.pendingHilGate);
   const activeMember = useSyncExternalStore(controller.subscribe, () => controller.activeMember);
+  const awaiting = useSyncExternalStore(controller.subscribe, () => controller.isAwaitingResponse);
+  const [stopping, setStopping] = useState(false);
 
   const activeThreadId = threadId ?? (threads.find((t) => t.isDefault) ?? threads[0])?.threadId;
   const messages = useSyncExternalStore(controller.subscribe, () => (activeThreadId ? controller.messagesFor(activeThreadId) : EMPTY_MESSAGES));
 
   const [submittingHil, setSubmittingHil] = useState(false);
+  async function stop() {
+    if (!onStop || stopping) return;
+    setStopping(true);
+    try {
+      await onStop();
+    } finally {
+      setStopping(false);
+    }
+  }
   const scrollRef = useRef<HTMLDivElement>(null);
   const prevCountRef = useRef(0);
 
@@ -115,7 +140,9 @@ export function ChatDiscussion({
     setSubmittingHil(true);
     try {
       await onHilResponse?.(gate, trimmed, source);
-      controller.clearHilGate();
+      // Only the gate that was just answered: the response can return after the run has already reached its NEXT gate
+      // (the reply request resolves once the run suspends again), and clearing unconditionally wiped that new question.
+      if (controller.pendingHilGate?.requestId === gate.requestId) controller.clearHilGate();
     } finally {
       setSubmittingHil(false);
     }
@@ -162,6 +189,11 @@ export function ChatDiscussion({
           hilHint={hilInputHint}
           isHil={isHilActive}
           loading={submittingHil}
+          // A pending question means the run is waiting on the user — except while their reply is in flight: that request only
+          // returns once the run suspends again, so the run IS working then and must stay stoppable.
+          running={(runningProp === true || awaiting) && (!isHilActive || submittingHil)}
+          onStop={onStop ? () => void stop() : undefined}
+          stopping={stopping}
           enableVoice={enableVoice}
           onTranscribeAudio={onTranscribeAudio}
           enableAttachments={enableAttachments}

@@ -13,6 +13,15 @@ export interface ChatInputProps {
   enabled?: boolean;
   /** When true, the send button shows a spinner. */
   loading?: boolean;
+  /**
+   * A run is in progress. With `onStop` the send button becomes a stop button (■) — the way every chat app lets you
+   * interrupt a model that is working — and Enter no longer sends.
+   */
+  running?: boolean;
+  /** Called when the stop button is pressed. Providing it is what enables the stop button while `running`. */
+  onStop?: () => void;
+  /** The stop request is in flight: the stop button shows a spinner and cannot be pressed twice. */
+  stopping?: boolean;
   /** Switches into HIL (human-in-the-loop) mode: uses `hilHint` and a distinct style. */
   isHil?: boolean;
   /** Shows a microphone button. Actual dictation only works when `onTranscribeAudio` is also provided. */
@@ -49,6 +58,9 @@ export function ChatInput({
   maxRows = 6,
   enabled = true,
   loading = false,
+  running = false,
+  onStop,
+  stopping = false,
   isHil = false,
   enableVoice = true,
   onTranscribeAudio,
@@ -66,13 +78,15 @@ export function ChatInput({
 
   const disabled = !enabled || loading;
 
+  const stoppable = running && !!onStop;
+
   const handleSend = useCallback(() => {
     const trimmed = text.trim();
-    if (!trimmed || disabled) return;
+    if (!trimmed || disabled || stoppable) return;
     onSend(trimmed, attachments);
     setText('');
     setAttachments([]);
-  }, [text, attachments, disabled, onSend]);
+  }, [text, attachments, disabled, stoppable, onSend]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -195,9 +209,15 @@ export function ChatInput({
             </button>
           )}
         </div>
-        <button type="button" className="ag-chat-input__send" disabled={!canSend} onClick={handleSend} aria-label="Send">
-          {loading ? '…' : '↑'}
-        </button>
+        {stoppable ? (
+          <button type="button" className="ag-chat-input__send ag-chat-input__send--stop" disabled={stopping} onClick={onStop} aria-label="Stop" title="Stop">
+            {stopping ? '…' : '■'}
+          </button>
+        ) : (
+          <button type="button" className="ag-chat-input__send" disabled={!canSend} onClick={handleSend} aria-label="Send">
+            {loading ? '…' : '↑'}
+          </button>
+        )}
       </div>
     </div>
   );

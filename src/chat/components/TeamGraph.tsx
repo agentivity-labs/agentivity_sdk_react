@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from 'react';
-import type { ChatController } from '../chat-controller.js';
+import type { ChatController, TeamMemberStatus } from '../chat-controller.js';
 import { resolveMemberAvatar as resolveAvatar, type AgUiChatMember, type AgUiMemberAvatar } from './member-avatar.js';
 import { Icon } from '../../icons/Icon.js';
 import { materialIcon } from '../../icons/icon-ref.js';
@@ -16,6 +16,13 @@ export interface TeamGraphProps {
   resolveMemberAvatar?: (member: AgUiChatMember) => AgUiMemberAvatar | undefined;
   /** Show the members in their group colors while nothing is running (a still picture of the team). By default they are switched off and light up as the run needs them. */
   restingColors?: boolean;
+  /**
+   * Status of each member, keyed by `memberEntityId` — from `useExecutionStatuses(executionId).members` (the execution's own
+   * inspector: right on a fresh run, after a reconnect and when reopening an old execution). When omitted it falls back to
+   * what the controller has seen on the stream (`controller.memberStatuses`), which is empty for anything that happened
+   * before this page was open.
+   */
+  statuses?: ReadonlyMap<string, TeamMemberStatus>;
   className?: string;
 }
 
@@ -144,8 +151,9 @@ function layout(others: AgUiTeamMember[], frame: Frame): Branch[] {
  * link). Driven by {@link ChatController.memberStatuses}; optional and independent of `ChatDiscussion`. Structural markup
  * with `ag-team-graph*` classes (default look in `styles.css`).
  */
-export function TeamGraph({ controller, members, hubMemberId, resolveMemberAvatar, restingColors, className }: TeamGraphProps) {
-  const statuses = useSyncExternalStore(controller.subscribe, () => controller.memberStatuses);
+export function TeamGraph({ controller, members, hubMemberId, resolveMemberAvatar, restingColors, statuses: statusesProp, className }: TeamGraphProps) {
+  const streamStatuses = useSyncExternalStore(controller.subscribe, () => controller.memberStatuses);
+  const statuses = statusesProp ?? streamStatuses;
   // The graph fills the box it is given: it measures it and lays the ring out to fit.
   const fit = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState<{ w: number; h: number } | null>(null);

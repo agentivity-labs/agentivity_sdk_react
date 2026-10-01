@@ -4,6 +4,7 @@ import { parseAgentSummary, parseAgenticBrowseCurrent, parseAgenticFolder, parse
 import { parseTeam, type Team } from '../domain/team-folder-models.js';
 import { parseTeamStructure, type TeamStructure } from '../domain/team-definition-models.js';
 import { parseWorkflowEntity, type WorkflowEntity } from '../domain/workflow-models.js';
+import { parseWorkflowGraph, type WorkflowGraphStructure } from '../domain/workflow-graph-models.js';
 
 function asArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
@@ -28,9 +29,18 @@ export class EntitiesApi {
   // GET /api/v1/entities?kind=agent|team|workflow
   // ---------------------------------------------------------------------------
 
-  async fetchEntities(options?: { kind?: string }): Promise<EntityUnit[]> {
+  /**
+   * @param options.tags Filter to entities carrying at least one (or all, with `tagMode: 'all'`)
+   *   of these tags — e.g. `{ tags: ['Solution'] }` for a white-label portal's catalog.
+   */
+  async fetchEntities(options?: { kind?: string; tags?: string[]; tagMode?: 'any' | 'all' }): Promise<EntityUnit[]> {
+    const tags = options?.tags?.map((t) => t.trim()).filter(Boolean);
     const data = await this.c.get<unknown[]>(AgentivityHttpCore.v1('/entities'), {
-      query: options?.kind?.trim() ? { kind: options.kind.trim() } : undefined,
+      query: {
+        kind: options?.kind?.trim() || undefined,
+        tag: tags && tags.length > 0 ? tags : undefined,
+        tagMode: options?.tagMode,
+      },
     });
     return asRecords(data).map(parseEntityUnit);
   }
@@ -91,5 +101,15 @@ export class EntitiesApi {
   async fetchWorkflow(id: string): Promise<WorkflowEntity> {
     const data = await this.c.get<Record<string, unknown>>(AgentivityHttpCore.v1(`/workflows/${id}`));
     return parseWorkflowEntity(data ?? {}, id);
+  }
+
+  /**
+   * The same workflow definition as {@link fetchWorkflow}, narrowed instead to a flow diagram's
+   * worth of structure (nodes + the execution-flow edges between them) — see
+   * {@link WorkflowGraphStructure}. Powers `WorkflowGraph`.
+   */
+  async fetchWorkflowGraph(id: string): Promise<WorkflowGraphStructure> {
+    const data = await this.c.get<Record<string, unknown>>(AgentivityHttpCore.v1(`/workflows/${id}`));
+    return parseWorkflowGraph(data ?? {});
   }
 }
