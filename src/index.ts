@@ -81,6 +81,8 @@ export * from './client/domain/entity-models.js';
 export { EntitiesApi } from './client/api/entities-api.js';
 export { RunsApi } from './client/api/runs-api.js';
 export { VoiceApi } from './client/api/voice-api.js';
+export { UploadsApi } from './client/api/uploads-api.js';
+export type { UploadedFile } from './client/api/uploads-api.js';
 export { DataTablesApi } from './client/api/datatables-api.js';
 export { parseDataTableRow } from './client/domain/datatable-models.js';
 export type { DataTableRow } from './client/domain/datatable-models.js';
@@ -104,7 +106,7 @@ export * from './client/extras/ag-ui-bundle-models.js';
 // ── Chat: state (AG-UI event-driven) ─────────────────────────────────────────
 export * from './chat/chat-models.js';
 export { ChatController } from './chat/chat-controller.js';
-export type { ActiveChatMember, TeamMemberStatus } from './chat/chat-controller.js';
+export type { ActiveChatMember, TeamMemberStatus, WorkflowStepStatus } from './chat/chat-controller.js';
 
 // ── Chat: components ──────────────────────────────────────────────────────────
 export { ChatDiscussion } from './chat/components/ChatDiscussion.js';
@@ -126,6 +128,10 @@ export { teamMembersFromStructure, teamHubMemberId, teamAvatarResolver, teamMemb
 export { TEAM_GROUP_PALETTE, teamGroupKey, teamGroupColors, groupColorOverrides, orderByGroup } from './chat/components/team-groups.js';
 export { parseTeamStructure, teamManager } from './client/domain/team-definition-models.js';
 export type { TeamStructure, TeamMemberPosition, TeamConnectionDefinition } from './client/domain/team-definition-models.js';
+export { WorkflowGraph } from './chat/components/WorkflowGraph.js';
+export type { WorkflowGraphProps } from './chat/components/WorkflowGraph.js';
+export { parseWorkflowGraph } from './client/domain/workflow-graph-models.js';
+export type { WorkflowGraphStructure, WorkflowGraphNode, WorkflowGraphEdge, WorkflowNodeKind } from './client/domain/workflow-graph-models.js';
 
 // Icons: a reference (the backend's NodeIconDef shape), its renderer, and the catalog a picker reads.
 export { MATERIAL_TYPE, materialIcon, parseIconRef } from './icons/icon-ref.js';
@@ -183,17 +189,22 @@ export { DatePickerCard } from './artifacts/components/interaction/DatePickerCar
 export { QuestionForm } from './artifacts/components/interaction/QuestionForm.js';
 export { RatingCard } from './artifacts/components/interaction/RatingCard.js';
 export { SummaryCard } from './artifacts/components/interaction/SummaryCard.js';
+export { SourceInput } from './artifacts/components/interaction/SourceInput.js';
 
 // ── Shared ────────────────────────────────────────────────────────────────────
 export * from './shared/json-helpers.js';
 
 // ── React ─────────────────────────────────────────────────────────────────────
-export { AgentivityProvider, useAgentivityClient } from './react/AgentivityProvider.js';
+export { AgentivityProvider, useAgentivityClient, useOptionalAgentivityClient } from './react/AgentivityProvider.js';
 export type { AgentivityProviderProps } from './react/AgentivityProvider.js';
 export { useRunStream } from './react/useRunStream.js';
 export type { UseRunStreamResult } from './react/useRunStream.js';
 export { useChatController } from './react/useChatController.js';
 export type { UseChatControllerResult } from './react/useChatController.js';
+export { useExecutionStatuses } from './react/useExecutionStatuses.js';
+export type { UseExecutionStatusesOptions, ExecutionStepStatuses } from './react/useExecutionStatuses.js';
+export { isExecutionLive, parseExecutionStatuses } from './client/domain/execution-status-models.js';
+export type { ExecutionStepState, ExecutionStatuses } from './client/domain/execution-status-models.js';
 export { ArtifactsThemeProvider, useArtifactsTheme } from './react/ArtifactsThemeProvider.js';
 export type { ArtifactsThemeProviderProps } from './react/ArtifactsThemeProvider.js';
 export { useAgUiState } from './react/useAgUiState.js';

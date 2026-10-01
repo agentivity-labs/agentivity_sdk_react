@@ -34,6 +34,11 @@ export function AgentivityProvider({ client, baseUrl, children }: AgentivityProv
   return <AgentivityContext.Provider value={resolved}>{children}</AgentivityContext.Provider>;
 }
 
+/** Like {@link useAgentivityClient}, but `undefined` outside a provider — for widgets that can render without a backend and only need it for one feature. */
+export function useOptionalAgentivityClient(): AgentivityClient | undefined {
+  return useContext(AgentivityContext);
+}
+
 /** Reads the {@link AgentivityClient} provided by the nearest {@link AgentivityProvider}. */
 export function useAgentivityClient(): AgentivityClient {
   const client = useContext(AgentivityContext);

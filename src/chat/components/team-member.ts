@@ -2,6 +2,7 @@ import type { TeamStructure } from '../../client/domain/team-definition-models.j
 import { teamManager } from '../../client/domain/team-definition-models.js';
 import type { AgUiChatMember, AgUiMemberAvatar } from './member-avatar.js';
 import type { IconRef } from '../../icons/icon-ref.js';
+import type { TeamMemberStatus } from '../chat-controller.js';
 import { groupColorOverrides, teamGroupColors, teamGroupKey } from './team-groups.js';
 
 /** A member of the Team being shown by `TeamRoster` / `TeamGraph`. `memberEntityId` must match the id the backend reports on `STEP_STARTED`/`STEP_FINISHED`. */
@@ -67,7 +68,7 @@ export function teamAvatarResolver(members: AgUiTeamMember[], fallback?: AvatarR
 }
 
 /** Text for a member's status, shared by both components' tooltips and screen-reader text. */
-export function teamMemberStatusText(status: 'working' | 'waiting' | 'done' | undefined): string {
+export function teamMemberStatusText(status: TeamMemberStatus | undefined): string {
   switch (status) {
     case 'working':
       return 'working now';
@@ -75,6 +76,8 @@ export function teamMemberStatusText(status: 'working' | 'waiting' | 'done' | un
       return 'waiting for your answer';
     case 'done':
       return 'done';
+    case 'failed':
+      return 'failed';
     default:
       return 'not needed yet';
   }

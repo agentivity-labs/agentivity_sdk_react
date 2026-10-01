@@ -5,7 +5,9 @@
 .ag-chat-discussion {
   display: flex;
   flex-direction: column;
+  width: 100%;
   height: 100%;
+  min-width: 0;
   font-family: system-ui, sans-serif;
   font-size: 14px;
 }
@@ -221,6 +223,10 @@
   background: var(--ag-team-done, #10b981);
 }
 
+.ag-team-roster__member[data-status='failed'] .ag-team-roster__badge {
+  background: var(--ag-team-failed, #dc2626);
+}
+
 /* Team graph: a constellation — the hub in the middle, one branch per group in the group's color. */
 /* The graph fills its box. By default the box is as wide as its parent at the design aspect ratio; give it a height (or make
    it a flex item that grows) and the graph spreads to fill that instead. */
@@ -229,12 +235,18 @@
   width: 100%;
   aspect-ratio: 400 / 380;
   min-height: 0;
+  /* The clip boundary belongs here — the widget's own box — not on the SVG below (see its own
+     `overflow: visible`): an SVG root clips to its `viewBox` by default, which is sized to the
+     graph's design box, so zooming in past 1× used to clip the drawing against that fixed
+     rectangle instead of against the box the viewer actually sees. */
+  overflow: hidden;
 }
 
 .ag-team-graph {
   display: block;
   width: 100%;
   height: 100%;
+  overflow: visible;
   /* Dragging and pinching move the graph, not the page. */
   touch-action: none;
   cursor: grab;
@@ -434,6 +446,10 @@
   stroke: var(--ag-team-done, #10b981);
 }
 
+.ag-team-graph__node[data-status='failed'] .ag-team-graph__ring {
+  stroke: var(--ag-team-failed, #dc2626);
+}
+
 .ag-team-graph__label {
   font-size: 8.5px;
   fill: currentColor;
@@ -452,6 +468,220 @@
   .ag-team-roster__member[data-status='working'] .ag-team-roster__avatar,
   .ag-team-graph__node[data-status='working'],
   .ag-team-graph__edge[data-status='working'] {
+    animation: none;
+  }
+}
+
+/* Workflow graph: a left-to-right flow diagram, one circle per node — see WorkflowGraph.tsx.
+   Same theme-driven --ag-* aliasing as .ag-team-graph above (declared on the component root, not
+   :root — same reasoning: ArtifactsThemeProvider's --ag-surface etc. only exist on a wrapper
+   inside the tree). One color role per node kind (start/decision/human/ai/end/action), separate
+   from the working/waiting/done run-status ring drawn on top of it. */
+.ag-workflow-graph {
+  --ag-workflow-surface: var(--ag-surface, #fff);
+  --ag-workflow-bg: var(--ag-surface, #fff);
+  /* A touch off the panel's own surface color, not identical to it — a node whose fill exactly
+     matches the panel behind it has nothing but a thin stroke to read by (confirmed too faint in
+     production, alongside the edge contrast fixed below). */
+  --ag-workflow-node-fill: var(--ag-surface-container-low, #f8fafc);
+  --ag-workflow-node-stroke: var(--ag-outline-variant, #c8ccd4);
+  --ag-workflow-muted: var(--ag-outline, #64748b);
+  --ag-workflow-working: var(--ag-tertiary, #f1633b);
+  --ag-workflow-waiting: var(--ag-primary, #e3a94f);
+  /* Not aliased to a theme token, same reasoning as --ag-team-done: "done" reads as success in
+     every theme, the same way a green checkmark does. */
+  --ag-workflow-done: #10b981;
+  /* One color per node kind — a workflow's own visual grammar (what a node DOES), independent of
+     the working/waiting/done ring (what it's currently DOING). */
+  --ag-workflow-start: #10b981;
+  --ag-workflow-decision: var(--ag-tertiary, #f59e0b);
+  --ag-workflow-human: var(--ag-primary, #2563eb);
+  --ag-workflow-ai: #8b5cf6;
+  --ag-workflow-end: var(--ag-outline, #334155);
+  --ag-workflow-action: var(--ag-outline, #64748b);
+}
+
+.ag-workflow-graph-fit {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  min-height: 0;
+  /* The clip boundary belongs here — the widget's own box — not on the SVG below (see its own
+     `overflow: visible`): an SVG root clips to its `viewBox` by default, which is sized to the
+     diagram's natural bounds, so zooming in (the inner viewport group scaling past 1) or panning
+     used to clip the drawing against that stale rectangle instead of against the box the viewer
+     actually sees. */
+  overflow: hidden;
+}
+
+.ag-workflow-graph {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+}
+
+.ag-workflow-graph:active {
+  cursor: grabbing;
+}
+
+.ag-workflow-graph__fit {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 18px;
+  color: var(--ag-workflow-muted, #64748b);
+  background: var(--ag-workflow-bg, #fff);
+  border: 1px solid var(--ag-workflow-node-stroke, #c8ccd4);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.ag-workflow-graph__fit:hover {
+  color: inherit;
+}
+
+.ag-workflow-graph__fit:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+/* A node is switched off — grey and dim — until the run reaches it, then lights up in its kind's
+   color; the one currently running blinks slowly. Same choreography as .ag-team-graph__node. */
+.ag-workflow-graph__node {
+  transition: filter 0.4s ease, opacity 0.4s ease;
+  color: var(--ag-workflow-action, #64748b);
+}
+
+.ag-workflow-graph__node[data-kind='start'] {
+  color: var(--ag-workflow-start, #10b981);
+}
+
+.ag-workflow-graph__node[data-kind='decision'] {
+  color: var(--ag-workflow-decision, #f59e0b);
+}
+
+.ag-workflow-graph__node[data-kind='human'] {
+  color: var(--ag-workflow-human, #2563eb);
+}
+
+.ag-workflow-graph__node[data-kind='ai'] {
+  color: var(--ag-workflow-ai, #8b5cf6);
+}
+
+.ag-workflow-graph__node[data-kind='end'] {
+  color: var(--ag-workflow-end, #334155);
+}
+
+.ag-workflow-graph__node[data-status='idle'] {
+  filter: grayscale(1);
+  opacity: 0.62;
+}
+
+.ag-workflow-graph__node[data-status='working'] {
+  animation: ag-team-blink 2.6s ease-in-out infinite;
+}
+
+.ag-workflow-graph__backing {
+  fill: var(--ag-workflow-node-fill, #fff);
+}
+
+.ag-workflow-graph__circle {
+  fill: var(--ag-workflow-node-fill, #fff);
+  stroke: currentColor;
+  stroke-width: 2.5;
+}
+
+.ag-workflow-graph__glyph {
+  fill: currentColor;
+}
+
+.ag-workflow-graph__ring {
+  stroke: transparent;
+  stroke-width: 2.5;
+}
+
+.ag-workflow-graph__node[data-status='working'] .ag-workflow-graph__ring {
+  stroke: var(--ag-workflow-working, #f1633b);
+}
+
+.ag-workflow-graph__node[data-status='waiting'] .ag-workflow-graph__ring {
+  stroke: var(--ag-workflow-waiting, #e3a94f);
+}
+
+.ag-workflow-graph__node[data-status='done'] .ag-workflow-graph__ring {
+  stroke: var(--ag-workflow-done, #10b981);
+}
+
+.ag-workflow-graph__node[data-status='failed'] .ag-workflow-graph__ring {
+  stroke: var(--ag-workflow-failed, #dc2626);
+}
+
+.ag-workflow-graph__label {
+  font-size: 9px;
+  fill: var(--ag-workflow-muted, #64748b);
+}
+
+/* A link is faint and dotted until the run reaches its source node, then solid; animated (a
+   moving dash) while that node is actively running — same idea as .ag-team-graph__edge.
+   --ag-workflow-muted (aliased to --ag-outline), not --ag-workflow-node-stroke (--ag-outline-
+   variant) — the latter is deliberately a near-invisible hairline elsewhere (a card border), far
+   too faint for a line that's meant to be followed at a glance (confirmed in production: on a
+   light theme's white panel it all but disappeared). */
+.ag-workflow-graph__edge {
+  fill: none;
+  stroke: var(--ag-workflow-muted, #94a3b8);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-dasharray: 1.5 4;
+  opacity: 0.8;
+}
+
+.ag-workflow-graph__edge[data-status='done'],
+.ag-workflow-graph__edge[data-status='waiting'] {
+  stroke: var(--ag-workflow-done, #10b981);
+  stroke-width: 2;
+  stroke-dasharray: none;
+  opacity: 1;
+}
+
+.ag-workflow-graph__edge[data-status='working'] {
+  stroke: var(--ag-workflow-working, #f1633b);
+  stroke-width: 2.4;
+  stroke-dasharray: 6 4;
+  opacity: 1;
+  animation: ag-team-flow 0.9s linear infinite;
+}
+
+.ag-workflow-graph__edge--loop {
+  stroke-dasharray: 3 4;
+}
+
+.ag-workflow-graph__edge-label rect {
+  fill: var(--ag-workflow-bg, #fff);
+  stroke: var(--ag-workflow-node-stroke, #c8ccd4);
+  stroke-width: 1;
+}
+
+.ag-workflow-graph__edge-label text {
+  font-size: 9px;
+  font-weight: 600;
+  fill: var(--ag-workflow-muted, #64748b);
+  text-anchor: middle;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ag-workflow-graph__node[data-status='working'],
+  .ag-workflow-graph__edge[data-status='working'] {
     animation: none;
   }
 }
@@ -502,17 +732,20 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  border: 1px solid #cbd5e1;
+  /* Theme-driven via the same --ag-* tokens ArtifactsThemeProvider sets (see
+     src/artifacts/theme.ts) — a host app's theme colors this exactly like every other
+     widget, instead of a fixed default palette that ignored whatever theme was chosen. */
+  border: 1px solid var(--ag-outline-variant, #cbd5e1);
   border-radius: 10px;
   padding: 6px 8px;
 }
 
 .ag-chat-input--hil {
-  border-color: #a855f7;
+  border-color: var(--ag-tertiary, #a855f7);
 }
 
 .ag-chat-input--loading {
-  border-color: #94a3b8;
+  border-color: var(--ag-outline, #94a3b8);
 }
 
 .ag-chat-input__attachments {
@@ -525,7 +758,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: #f1f5f9;
+  background: var(--ag-surface-container-highest, #f1f5f9);
   border-radius: 6px;
   padding: 2px 6px;
   font-size: 12px;
@@ -575,17 +808,27 @@
 }
 
 .ag-chat-input__icon-button--recording {
+  /* A universal "recording" red — a semantic signal, not a brand color, so it stays fixed
+     across themes (same reasoning as any other status color, e.g. the team graph's own
+     working/waiting/done hooks further up — those are theme-driven because they ARE the
+     brand's accent roles; this one specifically isn't). */
   color: #ef4444;
 }
 
 .ag-chat-input__send {
   border: none;
-  background: #2563eb;
-  color: white;
+  background: var(--ag-primary, #2563eb);
+  color: var(--ag-on-primary, #ffffff);
   width: 28px;
   height: 28px;
   border-radius: 6px;
   cursor: pointer;
+}
+
+/* While a run is in progress the send button is a stop button: same shape, a square glyph instead of the arrow. */
+.ag-chat-input__send--stop {
+  font-size: 12px;
+  line-height: 1;
 }
 
 .ag-chat-input__send:disabled {

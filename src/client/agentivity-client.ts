@@ -3,6 +3,7 @@ import { EntitiesApi } from './api/entities-api.js';
 import { IconsApi } from './api/icons-api.js';
 import { RunsApi } from './api/runs-api.js';
 import { VoiceApi } from './api/voice-api.js';
+import { UploadsApi } from './api/uploads-api.js';
 import { ConversationsApi } from './api/conversations-api.js';
 import { AgenticFoldersApi } from './api/agentic-folders-api.js';
 import { DataTablesApi } from './api/datatables-api.js';
@@ -34,6 +35,8 @@ export class AgentivityClient {
   readonly runs: RunsApi;
   /** Server-side voice transcription for chat dictation. */
   readonly voice: VoiceApi;
+  /** File uploads: hand a run a document (a CV, a contract…) it can read later by id. */
+  readonly uploads: UploadsApi;
   /** Conversation history: execution threads and messages. */
   readonly conversations: ConversationsApi;
   /** Agentic folder management: create, rename, move, and delete folders. */
@@ -47,6 +50,7 @@ export class AgentivityClient {
     this.icons = new IconsApi(this.http);
     this.runs = new RunsApi(this.http);
     this.voice = new VoiceApi(this.http);
+    this.uploads = new UploadsApi(this.http);
     this.conversations = new ConversationsApi(this.http);
     this.agenticFolders = new AgenticFoldersApi(this.http);
     this.dataTables = new DataTablesApi(this.http);

@@ -11,6 +11,7 @@ import {
   parseRunInteractionResponse,
   parseSessionStartedResponse,
 } from '../domain/entity-models.js';
+import { parseExecutionStatuses, type ExecutionStatuses } from '../domain/execution-status-models.js';
 
 /**
  * Run lifecycle endpoints: start, HIL, interactions, and SSE streams.
@@ -163,6 +164,22 @@ export class RunsApi {
     try {
       const data = await this.c.get<Record<string, unknown>>(AgentivityHttpCore.v1(`/executions/${normalized}`));
       return data ? parseExecutionRecord(data) : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Live step statuses — GET /api/v1/executions/{executionId}/inspector
+  // The authoritative per-step state (workflow nodes, team members) of any execution: valid on a fresh run,
+  // after a reconnect and when reopening an old execution — unlike stream events, which are not replayed.
+  // ---------------------------------------------------------------------------
+
+  async fetchExecutionStatuses(executionId: string): Promise<ExecutionStatuses | undefined> {
+    const normalized = this.c.requireNormalizedId(executionId, 'Execution id');
+    try {
+      const data = await this.c.get<Record<string, unknown>>(AgentivityHttpCore.v1(`/executions/${normalized}/inspector`));
+      return data ? parseExecutionStatuses(data) : undefined;
     } catch {
       return undefined;
     }

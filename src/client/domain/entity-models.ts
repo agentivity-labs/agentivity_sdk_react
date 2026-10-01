@@ -33,6 +33,13 @@ export interface EntityUnit {
   outputs: PortDefinition[];
   /** Display name of the owning folder (agents/teams only — workflows have no folders). */
   folderName?: string;
+  /** Free tags set in the library (e.g. "Solution" for a white-label portal's catalog). */
+  tags: string[];
+}
+
+function parseTagList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((v): v is string => typeof v === 'string');
 }
 
 export function parseEntityUnit(json: Record<string, unknown>): EntityUnit {
@@ -40,10 +47,15 @@ export function parseEntityUnit(json: Record<string, unknown>): EntityUnit {
     id: String(json['id'] ?? '').trim(),
     displayName: String(json['displayName'] ?? json['name'] ?? '').trim(),
     kind: String(json['kind'] ?? '').trim().toLowerCase(),
-    description: json['description'] != null ? String(json['description']) : undefined,
+    // The backend's EntityDto field is `role` (see ExecutableEntitiesEndpoints.cs), not
+    // `description` — this was reading a key that never exists in the response, so
+    // `description` was silently always undefined. `description` is kept as a fallback in case
+    // a future/other server shape ever sends that key instead.
+    description: json['role'] != null && String(json['role']).trim() !== '' ? String(json['role']) : json['description'] != null ? String(json['description']) : undefined,
     inputs: parsePortList(json['inputs']),
     outputs: parsePortList(json['outputs']),
     folderName: json['folderName'] != null ? String(json['folderName']) : undefined,
+    tags: parseTagList(json['tags']),
   };
 }
 
@@ -166,6 +178,8 @@ export interface ExecutionRecord {
   /** channelType → threadId (e.g. `{ chat: "919d4238-..." }`) */
   channels: Record<string, string>;
   currentRunId?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export function parseExecutionRecord(json: Record<string, unknown>): ExecutionRecord {
@@ -183,6 +197,8 @@ export function parseExecutionRecord(json: Record<string, unknown>): ExecutionRe
     state: String(json['state'] ?? '').trim(),
     channels,
     currentRunId: json['currentRunId'] != null ? String(json['currentRunId']) : undefined,
+    createdAt: json['createdAt'] != null ? String(json['createdAt']) : undefined,
+    updatedAt: json['updatedAt'] != null ? String(json['updatedAt']) : undefined,
   };
 }
 
