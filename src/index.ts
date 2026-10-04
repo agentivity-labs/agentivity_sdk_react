@@ -115,6 +115,13 @@ export { ChatInput } from './chat/components/ChatInput.js';
 export type { ChatInputProps } from './chat/components/ChatInput.js';
 export { ChatMessageBubble } from './chat/components/ChatMessageBubble.js';
 export type { ChatMessageBubbleProps } from './chat/components/ChatMessageBubble.js';
+export { ChatConnectionNotice, describeConnection } from './chat/components/ChatConnectionNotice.js';
+export type { ChatConnectionNoticeProps } from './chat/components/ChatConnectionNotice.js';
+export { ConnectionMonitor } from './client/connection-monitor.js';
+export type { ConnectionState, StreamConnection, ConnectionMonitorOptions } from './client/connection-monitor.js';
+export { ChatRunError, describeRunError } from './chat/components/ChatRunError.js';
+export type { ChatRunErrorProps } from './chat/components/ChatRunError.js';
+export type { AgUiRunError } from './chat/chat-controller.js';
 export { ChatActiveMemberIndicator } from './chat/components/ChatActiveMemberIndicator.js';
 export type { ChatActiveMemberIndicatorProps } from './chat/components/ChatActiveMemberIndicator.js';
 export { MemberAvatar, resolveMemberAvatar } from './chat/components/member-avatar.js';
@@ -124,7 +131,8 @@ export type { TeamRosterProps } from './chat/components/TeamRoster.js';
 export { TeamGraph } from './chat/components/TeamGraph.js';
 export type { TeamGraphProps } from './chat/components/TeamGraph.js';
 export type { AgUiTeamMember } from './chat/components/team-member.js';
-export { teamMembersFromStructure, teamHubMemberId, teamAvatarResolver, teamMemberShortName } from './chat/components/team-member.js';
+export { teamMembersFromStructure, teamHubMemberId, teamTopology, teamAvatarResolver, teamMemberShortName } from './chat/components/team-member.js';
+export type { AgUiTeamTopology, AgUiTeamTopologyKind, AgUiTeamLink } from './chat/components/team-member.js';
 export { TEAM_GROUP_PALETTE, teamGroupKey, teamGroupColors, groupColorOverrides, orderByGroup } from './chat/components/team-groups.js';
 export { parseTeamStructure, teamManager } from './client/domain/team-definition-models.js';
 export type { TeamStructure, TeamMemberPosition, TeamConnectionDefinition } from './client/domain/team-definition-models.js';
@@ -181,6 +189,10 @@ export { Timeline } from './artifacts/components/status/Timeline.js';
 // ── Artifacts: math & SVG ─────────────────────────────────────────────────────
 export { Latex } from './artifacts/components/math/Latex.js';
 export { Svg } from './artifacts/components/svg/Svg.js';
+
+// ── Artifacts: media ──────────────────────────────────────────────────────────
+export { ImageGallery } from './artifacts/components/media/ImageGallery.js';
+export { ArtifactImage, safeImageUrl, safeHttpUrl } from './artifacts/components/ArtifactImage.js';
 
 // ── Artifacts: interaction ────────────────────────────────────────────────────
 export { ChoiceCard } from './artifacts/components/interaction/ChoiceCard.js';

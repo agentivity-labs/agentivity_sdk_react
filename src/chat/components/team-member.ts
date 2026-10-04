@@ -5,6 +5,26 @@ import type { IconRef } from '../../icons/icon-ref.js';
 import type { TeamMemberStatus } from '../chat-controller.js';
 import { groupColorOverrides, teamGroupColors, teamGroupKey } from './team-groups.js';
 
+/** How a team's members work together — what the team graph draws. Mirrors the backend's orchestrators. */
+export type AgUiTeamTopologyKind = 'manager-led' | 'sequential' | 'concurrent' | 'handoff' | 'group-chat';
+
+/** A directed link between two members, by `memberEntityId`. */
+export interface AgUiTeamLink {
+  from: string;
+  to: string;
+}
+
+/**
+ * The shape of a team: how its members are organized (`kind`) and the directed links the team editor drew between them.
+ * `TeamGraph` draws each kind differently — a hub for a manager-led team, a chain for a sequential one, parallel lanes for
+ * a concurrent one, a ring of peers for a handoff, a shared table for a group chat.
+ */
+export interface AgUiTeamTopology {
+  kind: AgUiTeamTopologyKind;
+  /** The links saved in the team (sequential: who hands over to whom; handoff: who may delegate to whom). Empty when the team defines none. */
+  links: AgUiTeamLink[];
+}
+
 /** A member of the Team being shown by `TeamRoster` / `TeamGraph`. `memberEntityId` must match the id the backend reports on `STEP_STARTED`/`STEP_FINISHED`. */
 export interface AgUiTeamMember {
   memberEntityId: string;
@@ -17,11 +37,44 @@ export interface AgUiTeamMember {
   group?: string;
   /** The color the team editor chose for this member's group (`#RRGGBB`); absent = the default color. */
   groupColor?: string;
+  /**
+   * The shape of the whole team, set by {@link teamMembersFromStructure} on every member so `TeamGraph` can draw the right
+   * layout from the members alone. An app that builds its members by hand can pass `topology` to `TeamGraph` instead.
+   */
+  topology?: AgUiTeamTopology;
 }
 
 /** A team's saved definition, ready for `TeamRoster` / `TeamGraph`: one member each, with the icon and group the team editor set. */
 export function teamMembersFromStructure(team: TeamStructure): AgUiTeamMember[] {
-  return team.members.map((m) => ({ memberEntityId: m.memberEntityId, displayName: m.displayName ?? m.memberEntityId, icon: m.icon, group: m.group, groupColor: team.groupColors[teamGroupKey(m.group) ?? ''] }));
+  const topology = teamTopology(team);
+  return team.members.map((m) => ({ memberEntityId: m.memberEntityId, displayName: m.displayName ?? m.memberEntityId, icon: m.icon, group: m.group, groupColor: team.groupColors[teamGroupKey(m.group) ?? ''], topology }));
+}
+
+const TOPOLOGY_KINDS: Record<string, AgUiTeamTopologyKind> = {
+  'manager-led': 'manager-led',
+  managerled: 'manager-led',
+  manager_led: 'manager-led',
+  sequential: 'sequential',
+  concurrent: 'concurrent',
+  parallel: 'concurrent',
+  handoff: 'handoff',
+  'group-chat': 'group-chat',
+  groupchat: 'group-chat',
+  group_chat: 'group-chat',
+};
+
+/** The shape of a team as saved, or `undefined` for an orchestrator this SDK does not know (the graph then falls back to its default drawing). */
+export function teamTopology(team: TeamStructure): AgUiTeamTopology | undefined {
+  const kind = TOPOLOGY_KINDS[team.orchestratorId.trim().toLowerCase()];
+  if (!kind) return undefined;
+  const memberOf = new Map(team.members.map((m) => [m.topologyPositionId, m.memberEntityId]));
+  const links: AgUiTeamLink[] = [];
+  for (const c of team.connections) {
+    const from = memberOf.get(c.fromTopologyPositionId);
+    const to = memberOf.get(c.toTopologyPositionId);
+    if (from && to && from !== to && !links.some((l) => l.from === from && l.to === to)) links.push({ from, to });
+  }
+  return { kind, links };
 }
 
 /** The id to pass as `hubMemberId` — the manager of a manager-led team, otherwise `undefined`. */

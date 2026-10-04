@@ -186,6 +186,17 @@ export class AgUiSseChannel<T> {
     void this.connect();
   }
 
+  /** Reconnects now instead of waiting out the backoff — the user asked to retry. No effect while connected or after the run ended. */
+  reconnectNow(): void {
+    if (this.disposed || this.terminated || this.connected) return;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    this.setConnectionState({ status: 'connecting', attempt: this.reconnectAttempts });
+    void this.connect();
+  }
+
   /**
    * Called by the consumer when a terminal AG-UI event (RUN_FINISHED, RUN_ERROR)
    * is received. Prevents the channel from reconnecting after a clean run end.

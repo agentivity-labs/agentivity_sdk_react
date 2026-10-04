@@ -4,7 +4,8 @@ import { resolveMemberAvatar as resolveAvatar, type AgUiChatMember, type AgUiMem
 import { Icon } from '../../icons/Icon.js';
 import { materialIcon } from '../../icons/icon-ref.js';
 import { groupColorOverrides, orderByGroup, teamGroupColors, teamGroupKey } from './team-groups.js';
-import { memberAvatarFor, teamMemberShortName, teamMemberStatusText, type AgUiTeamMember } from './team-member.js';
+import { memberAvatarFor, teamMemberShortName, teamMemberStatusText, type AgUiTeamMember, type AgUiTeamTopology } from './team-member.js';
+import { groupsFor, pillWidth, sceneFor, shorten, type SceneEdge, type SceneGroup, type TeamScene } from './team-layouts.js';
 
 export interface TeamGraphProps {
   controller: ChatController;
@@ -12,6 +13,13 @@ export interface TeamGraphProps {
   members: AgUiTeamMember[];
   /** The coordinating member (a manager), drawn in the middle and linked to every group. Omit to draw the groups around a neutral center. */
   hubMemberId?: string;
+  /**
+   * How the team is organized, so each kind is drawn the way it works: a hub for a manager-led team, a numbered chain for a
+   * sequential one, parallel lanes for a concurrent one, a ring of linked peers for a handoff, a shared table for a group chat.
+   * Omit it and the graph reads it from the members (`teamMembersFromStructure` sets it), falling back to the hub-and-groups
+   * constellation.
+   */
+  topology?: AgUiTeamTopology;
   /** Maps a member's identity to an avatar (image/emoji/color). Falls back to initials+color when omitted. */
   resolveMemberAvatar?: (member: AgUiChatMember) => AgUiMemberAvatar | undefined;
   /** Show the members in their group colors while nothing is running (a still picture of the team). By default they are switched off and light up as the run needs them. */
@@ -88,13 +96,21 @@ const frameOf = (width: number, height: number): Frame => ({
 
 const DEFAULT_FRAME = frameOf(DESIGN.width, DESIGN.height);
 
+/** A box taller than this many times its width is a side panel: the graph is scaled to its width rather than shrunk to fit its height. */
+const TALL_BOX = 1.4;
+/** The width, in design units, a tall narrow box is laid out in — three captions side by side, one design unit per pixel. */
+const NARROW_WIDTH = 280;
+
 /**
  * The frame that fills a box of `w` × `h` pixels: elements keep the size they have at the design size (scaled by the
- * tighter of the two dimensions) and the ring stretches to the rest of the space.
+ * tighter of the two dimensions) and the ring stretches to the rest of the space. A tall, narrow box (a side panel) would
+ * make everything tiny that way, so there the scale follows the width — down to `NARROW_WIDTH` units across — and the
+ * extra height is left to the layout.
  */
 function frameFor(box: { w: number; h: number } | null): Frame {
   if (!box || box.w < 40 || box.h < 40) return DEFAULT_FRAME;
-  const scale = Math.min(box.w / DESIGN.width, box.h / DESIGN.height);
+  const fitted = Math.min(box.w / DESIGN.width, box.h / DESIGN.height);
+  const scale = box.h > box.w * TALL_BOX ? Math.max(fitted, Math.min(1, box.w / NARROW_WIDTH)) : fitted;
   return frameOf(Math.min(box.w / scale, MAX_SPAN), Math.min(box.h / scale, MAX_SPAN));
 }
 
@@ -105,11 +121,31 @@ const onRing = (frame: Frame, angle: number, scale = 1): Point => ({
 
 /** A curve from `a` to `b`, bent sideways by `bend` × its length — every link of the graph is one. */
 function curve(a: Point, b: Point, bend: number): string {
+  const { d } = curveParts(a, b, bend);
+  return d;
+}
+
+function curveParts(a: Point, b: Point, bend: number): { d: string; control: Point } {
   const mx = (a.x + b.x) / 2;
   const my = (a.y + b.y) / 2;
-  const cx = mx - (b.y - a.y) * bend;
-  const cy = my + (b.x - a.x) * bend;
-  return `M${a.x.toFixed(1)} ${a.y.toFixed(1)} Q${cx.toFixed(1)} ${cy.toFixed(1)} ${b.x.toFixed(1)} ${b.y.toFixed(1)}`;
+  const control = { x: mx - (b.y - a.y) * bend, y: my + (b.x - a.x) * bend };
+  return { d: `M${a.x.toFixed(1)} ${a.y.toFixed(1)} Q${control.x.toFixed(1)} ${control.y.toFixed(1)} ${b.x.toFixed(1)} ${b.y.toFixed(1)}`, control };
+}
+
+const HEAD_SIZE = 6.5;
+
+/** A small triangle at `tip`, pointing the way the curve arrives there (from its control point). */
+function arrowHead(tip: Point, control: Point): string {
+  const dx = tip.x - control.x;
+  const dy = tip.y - control.y;
+  const length = Math.hypot(dx, dy) || 1;
+  const ux = dx / length;
+  const uy = dy / length;
+  const bx = tip.x - ux * HEAD_SIZE;
+  const by = tip.y - uy * HEAD_SIZE;
+  const wx = -uy * HEAD_SIZE * 0.55;
+  const wy = ux * HEAD_SIZE * 0.55;
+  return `M${tip.x.toFixed(1)} ${tip.y.toFixed(1)} L${(bx + wx).toFixed(1)} ${(by + wy).toFixed(1)} L${(bx - wx).toFixed(1)} ${(by - wy).toFixed(1)} Z`;
 }
 
 /**
@@ -151,7 +187,7 @@ function layout(others: AgUiTeamMember[], frame: Frame): Branch[] {
  * link). Driven by {@link ChatController.memberStatuses}; optional and independent of `ChatDiscussion`. Structural markup
  * with `ag-team-graph*` classes (default look in `styles.css`).
  */
-export function TeamGraph({ controller, members, hubMemberId, resolveMemberAvatar, restingColors, statuses: statusesProp, className }: TeamGraphProps) {
+export function TeamGraph({ controller, members, hubMemberId, topology: topologyProp, resolveMemberAvatar, restingColors, statuses: statusesProp, className }: TeamGraphProps) {
   const streamStatuses = useSyncExternalStore(controller.subscribe, () => controller.memberStatuses);
   const statuses = statusesProp ?? streamStatuses;
   // The graph fills the box it is given: it measures it and lays the ring out to fit.
@@ -184,7 +220,46 @@ export function TeamGraph({ controller, members, hubMemberId, resolveMemberAvata
 
   const colorOf = (member: AgUiTeamMember) => groupColors.get(teamGroupKey(member.group) ?? '');
 
-  const node = (member: AgUiTeamMember, at: Point, radius: number) => {
+  // Every topology but the manager-led one has its own layout; the manager-led one (and a team of unknown shape) keeps the constellation.
+  const topology = topologyProp ?? members.find((m) => m.topology)?.topology;
+  const memberById = useMemo(() => new Map(members.map((m) => [m.memberEntityId, m])), [members]);
+  const scene = useMemo<TeamScene | undefined>(() => {
+    if (!topology || topology.kind === 'manager-led') return undefined;
+    // A chain keeps the order of the team; every other layout draws a group as one arc / one block, so its members sit together.
+    const ordered = topology.kind === 'sequential' ? members : orderByGroup(members, (m) => m.group);
+    return sceneFor(topology.kind, ordered.map((m) => m.memberEntityId), topology.links, frame, (id) => teamGroupKey(members.find((m) => m.memberEntityId === id)?.group));
+  }, [members, topology, frame]);
+  // In a chain the order is the team's, so a group split by another is drawn once per run of consecutive members (key `group#run`).
+  const chainRuns = useMemo(() => {
+    const runs = new Map<string, string>();
+    if (topology?.kind !== 'sequential') return runs;
+    let previous: string | undefined;
+    let run = 0;
+    for (const m of members) {
+      const key = teamGroupKey(m.group);
+      if (key !== previous) run++;
+      previous = key;
+      if (key) runs.set(m.memberEntityId, `${key}#${run}`);
+    }
+    return runs;
+  }, [members, topology]);
+  const sceneGroups = useMemo<SceneGroup[]>(
+    () =>
+      scene
+        ? groupsFor(
+            scene,
+            (id) => {
+              const member = memberById.get(id);
+              const key = teamGroupKey(member?.group);
+              return key ? { key: chainRuns.get(id) ?? key, name: member!.group!.trim() } : undefined;
+            },
+            frame,
+          )
+        : [],
+    [scene, memberById, chainRuns, frame],
+  );
+
+  const node = (member: AgUiTeamMember, at: Point, radius: number, order?: number, labelAbove?: boolean) => {
     const status = statuses.get(member.memberEntityId);
     const avatar = resolveAvatar(member, memberAvatarFor(member, colorOf(member), resolveMemberAvatar));
     // A member wears its group's color (or the app's own) on the hexagon's border and on its icon.
@@ -224,7 +299,15 @@ export function TeamGraph({ controller, members, hubMemberId, resolveMemberAvata
           </>
         )}
         <polygon className="ag-team-graph__ring" points={hexPoints(hexRadius + 3.5)} fill="none" />
-        <text className="ag-team-graph__label" y={hexRadius + 12} textAnchor="middle">
+        {order !== undefined && (
+          <g className="ag-team-graph__order" transform={`translate(${(-hexRadius * 0.9).toFixed(1)} ${(-hexRadius * 0.95).toFixed(1)})`} style={colorStyle}>
+            <circle r={6.2} />
+            <text textAnchor="middle" dominantBaseline="central" fontSize={7.5}>
+              {order}
+            </text>
+          </g>
+        )}
+        <text className="ag-team-graph__label" y={labelAbove ? -(hexRadius + 6) : hexRadius + 12} textAnchor="middle">
           {truncate(member.label ?? teamMemberShortName(member.displayName))}
         </text>
         </g>
@@ -238,10 +321,74 @@ export function TeamGraph({ controller, members, hubMemberId, resolveMemberAvata
     return all.includes('working') ? 'working' : all.includes('waiting') ? 'waiting' : all.includes('done') ? 'done' : 'idle';
   };
 
+  const anyStatus = (...ids: string[]) => {
+    const all = ids.map((id) => statuses.get(id));
+    return all.includes('working') ? 'working' : all.includes('waiting') ? 'waiting' : all.includes('done') ? 'done' : 'idle';
+  };
+
+  const sceneEdge = (e: SceneEdge) => {
+    const a = shorten(e.from, e.to, e.fromInset);
+    const b = shorten(e.to, e.from, e.toInset);
+    const { d, control } = curveParts(a, b, e.bend);
+    const everyone = members.map((m) => m.memberEntityId);
+    // A link that stands for the whole team: lit once anyone is in the run (`any`), or once everyone is done (`all`).
+    const status = e.lit === 'any' ? (anyStatus(...everyone) === 'idle' ? 'idle' : 'done') : e.lit === 'all' ? (everyone.length > 0 && everyone.every((id) => statuses.get(id) === 'done') ? 'done' : 'idle') : (statuses.get(e.lit) ?? 'idle');
+    const lit = memberById.get(e.lit);
+    const color = lit ? colorOf(lit) : e.lit === 'any' || e.lit === 'all' ? 'var(--ag-team-done, #10b981)' : undefined;
+    return (
+      <g key={e.key} className="ag-team-graph__link" style={color ? { color } : undefined}>
+        <path className="ag-team-graph__edge" data-status={status} d={d} />
+        {e.arrow && <path className="ag-team-graph__head" data-status={status} d={arrowHead(b, control)} />}
+      </g>
+    );
+  };
+
+  // Every group is drawn as in the constellation: a soft zone behind its members, in the group's color, and a badge with its name.
+  const groupZones = sceneGroups.map((group) => (
+    <g key={`zone-${group.key}`} style={{ color: groupColors.get(baseKey(group.key)) }}>
+      <GroupZone points={group.points} />
+    </g>
+  ));
+  const groupBadges = sceneGroups.map((group) => (
+    <g key={`badge-${group.key}`} style={{ color: groupColors.get(baseKey(group.key)) }}>
+      <GroupPill name={group.name} count={group.ids.length} center={group.label} />
+    </g>
+  ));
+
+  const sceneBody = (current: TeamScene) => (
+    <>
+      {groupZones}
+      {current.band && <rect className="ag-team-graph__band" x={current.band.x} y={current.band.y} width={current.band.width} height={current.band.height} rx={18} />}
+      {current.edges.map(sceneEdge)}
+      {groupBadges}
+      {current.dots.map((dot) => {
+        const status = dot.key === 'center' ? anyStatus(...members.map((m) => m.memberEntityId)) : dot.key === 'start' ? (statuses.size > 0 ? 'done' : 'idle') : anyStatus(...members.map((m) => m.memberEntityId)) === 'done' && members.every((m) => statuses.get(m.memberEntityId) === 'done') ? 'done' : 'idle';
+        return dot.key === 'center' ? (
+          <g key={dot.key} className="ag-team-graph__center" data-status={status} transform={`translate(${dot.at.x.toFixed(1)} ${dot.at.y.toFixed(1)})`}>
+            <title>Shared conversation</title>
+            <circle className="ag-team-graph__center-bubble" r={11} />
+            <circle className="ag-team-graph__center-dot" cx={-4.5} r={1.5} />
+            <circle className="ag-team-graph__center-dot" r={1.5} />
+            <circle className="ag-team-graph__center-dot" cx={4.5} r={1.5} />
+          </g>
+        ) : (
+          <circle key={dot.key} className="ag-team-graph__dot" data-status={status} cx={dot.at.x} cy={dot.at.y} r={dot.key === 'start' ? 4.5 : 5.5}>
+            <title>{dot.key === 'start' ? 'Start' : 'All done'}</title>
+          </circle>
+        );
+      })}
+      {current.members.map((placed) => {
+        const member = memberById.get(placed.id);
+        return member ? node(member, placed.at, NODE_RADIUS, placed.order, placed.labelAbove) : null;
+      })}
+    </>
+  );
+
   return (
     <div ref={fit} className="ag-team-graph-fit">
-    <svg ref={svgRef} className={cx('ag-team-graph', className)} data-run={statuses.size > 0 ? 'active' : 'none'} data-resting={restingColors ? 'true' : undefined} viewBox={`0 0 ${frame.width.toFixed(1)} ${frame.height.toFixed(1)}`} role="img" aria-label="Team">
+    <svg ref={svgRef} className={cx('ag-team-graph', className)} data-topology={scene ? topology?.kind : 'constellation'} data-run={statuses.size > 0 ? 'active' : 'none'} data-resting={restingColors ? 'true' : undefined} viewBox={`0 0 ${frame.width.toFixed(1)} ${frame.height.toFixed(1)}`} role="img" aria-label="Team">
       <g className="ag-team-graph__viewport" transform={`translate(${view.x.toFixed(2)} ${view.y.toFixed(2)}) scale(${view.k.toFixed(4)})`}>
+      {scene ? sceneBody(scene) : <>
       {branches.map((branch, b) => {
         const color = branch.key ? groupColors.get(branch.key) : undefined;
         return (
@@ -259,6 +406,7 @@ export function TeamGraph({ controller, members, hubMemberId, resolveMemberAvata
       })}
       {branches.flatMap((branch) => branch.members.map(({ member, at }) => node(member, at, NODE_RADIUS)))}
       {hub && node(hub, frame.center, HUB_RADIUS)}
+      </>}
       </g>
     </svg>
     <button type="button" className="ag-team-graph__fit" onClick={fitView} title="Fit to view" aria-label="Fit to view">
@@ -386,27 +534,34 @@ function GroupZone({ points }: { points: Point[] }) {
 /** The group's badge — a pill with its color, its name in capitals and its size — set beside its junction, clear of the links. */
 function GroupLabel({ branch }: { branch: Branch }) {
   const j = branch.junction!;
-  const name = branch.name!.toUpperCase();
-  const width = name.length * 6.9 + 38;
-  const height = 15;
+  const width = pillWidth(branch.name!);
   const px = -Math.sin(branch.angle);
   const py = Math.cos(branch.angle);
-  const cx = j.x + px * (width / 2 + 6);
-  const cy = j.y + py * 13;
-  const left = cx - width / 2;
+  return <GroupPill name={branch.name!} count={branch.members.length} center={{ x: j.x + px * (width / 2 + 6), y: j.y + py * 13 }} />;
+}
+
+/** A group's name badge — a pill in the group's color: a dot, the name in capitals and the member count — centered on `center`. */
+function GroupPill({ name, count, center }: { name: string; count: number; center: Point }) {
+  const label = name.toUpperCase();
+  const width = pillWidth(name);
+  const height = 15;
+  const left = center.x - width / 2;
   return (
     <g className="ag-team-graph__badge">
-      <rect className="ag-team-graph__pill" x={left} y={cy - height / 2} width={width} height={height} rx={height / 2} />
-      <circle className="ag-team-graph__pill-dot" cx={left + 9} cy={cy} r={2.4} />
-      <text className="ag-team-graph__group" x={left + 16} y={cy + 3}>
-        {name}
+      <rect className="ag-team-graph__pill" x={left} y={center.y - height / 2} width={width} height={height} rx={height / 2} />
+      <circle className="ag-team-graph__pill-dot" cx={left + 9} cy={center.y} r={2.4} />
+      <text className="ag-team-graph__group" x={left + 16} y={center.y + 3}>
+        {label}
       </text>
-      <text className="ag-team-graph__count" x={left + width - 8} y={cy + 3} textAnchor="end">
-        {branch.members.length}
+      <text className="ag-team-graph__count" x={left + width - 8} y={center.y + 3} textAnchor="end">
+        {count}
       </text>
     </g>
   );
 }
+
+/** The group a chain key stands for: `group#run` → `group`. */
+const baseKey = (key: string) => key.replace(/#\d+$/, '');
 
 function cx(...parts: (string | undefined | false)[]): string {
   return parts.filter(Boolean).join(' ');

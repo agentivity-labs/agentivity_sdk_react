@@ -7,6 +7,7 @@ import { UploadsApi } from './api/uploads-api.js';
 import { ConversationsApi } from './api/conversations-api.js';
 import { AgenticFoldersApi } from './api/agentic-folders-api.js';
 import { DataTablesApi } from './api/datatables-api.js';
+import { ConnectionMonitor } from './connection-monitor.js';
 
 /**
  * Lightweight Agentivity client for building applications on top of an
@@ -27,6 +28,9 @@ import { DataTablesApi } from './api/datatables-api.js';
 export class AgentivityClient {
   private readonly http: AgentivityHttpCore;
 
+  /** Whether the server can be reached, and when the next attempt is — what `ChatConnectionNotice` shows. */
+  readonly connection: ConnectionMonitor;
+
   /** Entity discovery: list and browse agents, teams, and workflows. */
   readonly entities: EntitiesApi;
   /** The catalog of icons a user can choose from (any icon picker reads it). */
@@ -45,7 +49,9 @@ export class AgentivityClient {
   readonly dataTables: DataTablesApi;
 
   constructor(args: { baseUrl: string; fetchImpl?: typeof fetch }) {
-    this.http = new AgentivityHttpCore(args);
+    const monitor = new ConnectionMonitor({ probe: () => this.http.probe() });
+    this.connection = monitor;
+    this.http = new AgentivityHttpCore({ ...args, monitor });
     this.entities = new EntitiesApi(this.http);
     this.icons = new IconsApi(this.http);
     this.runs = new RunsApi(this.http);

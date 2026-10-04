@@ -1,18 +1,20 @@
 import { useState } from 'react';
 import { ArtifactCard } from '../ArtifactCard.js';
+import { ArtifactImage, safeImageUrl } from '../ArtifactImage.js';
 import type { ChartProps } from '../charts/BarChart.js';
 
 interface Option {
   id: string;
   label: string;
   description?: string;
+  imageUrl?: string;
 }
 
 function asOptions(raw: unknown): Option[] {
   if (!Array.isArray(raw)) return [];
   return raw
     .filter((o): o is Record<string, unknown> => !!o && typeof o === 'object')
-    .map((o) => ({ id: o['id'] != null ? String(o['id']) : '', label: o['label'] != null ? String(o['label']) : String(o['id'] ?? ''), description: o['description'] != null ? String(o['description']) : undefined }));
+    .map((o) => ({ id: o['id'] != null ? String(o['id']) : '', label: o['label'] != null ? String(o['label']) : String(o['id'] ?? ''), description: o['description'] != null ? String(o['description']) : undefined, imageUrl: safeImageUrl(o['imageUrl']) }));
 }
 
 /**
@@ -20,7 +22,7 @@ function asOptions(raw: unknown): Option[] {
  * `props.__onSubmit` with selected label(s): single → `"Choix : Gaming"`,
  * multiple → `"Choix : Gaming, Professionnel"`.
  *
- * Agent props: `{ title, question?, multiple?, options: [{ id, label, description? }], submitLabel? }`.
+ * Agent props: `{ title, question?, multiple?, options: [{ id, label, description?, imageUrl? }], submitLabel? }`.
  */
 export function ChoiceCard({ props }: ChartProps) {
   const options = asOptions(props['options']);
@@ -80,7 +82,8 @@ export function ChoiceCard({ props }: ChartProps) {
             <span style={{ color: isSelected ? 'var(--ag-primary, #2563eb)' : 'currentColor', opacity: isSelected ? 1 : 0.4 }}>
               {multiple ? (isSelected ? '☑' : '☐') : isSelected ? '◉' : '○'}
             </span>
-            <div>
+            {opt.imageUrl && <ArtifactImage src={opt.imageUrl} alt={opt.label} aspectRatio="1 / 1" width={56} radius={6} />}
+            <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 500 }}>{opt.label}</div>
               {opt.description && <div style={{ fontSize: 11, opacity: 0.55 }}>{opt.description}</div>}
             </div>
