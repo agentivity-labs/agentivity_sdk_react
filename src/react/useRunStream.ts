@@ -62,10 +62,21 @@ export function useRunStream(streamPath: string | undefined): UseRunStreamResult
       }
     });
     const unsubscribeConnected = channel.subscribeConnected(setConnected);
-    const unsubscribeConnectionState = channel.subscribeConnectionState(setConnectionState);
+    // The app-wide connection notice follows this stream: reconnecting = the server cannot be reached right now.
+    const streamId = `${streamPath}#${Math.random().toString(36).slice(2)}`;
+    const unsubscribeConnectionState = channel.subscribeConnectionState((state) => {
+      setConnectionState(state);
+      client.connection.setStream(streamId, {
+        offline: state.status === 'reconnecting' || (state.status === 'connecting' && state.attempt > 0),
+        attempt: state.attempt,
+        nextRetryAt: state.nextRetryAt,
+        retry: () => channel.reconnectNow(),
+      });
+    });
     channel.start();
 
     return () => {
+      client.connection.removeStream(streamId);
       unsubscribeEvents();
       unsubscribeConnected();
       unsubscribeConnectionState();

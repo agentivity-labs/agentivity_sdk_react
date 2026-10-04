@@ -178,7 +178,7 @@ export class RunsApi {
   async fetchExecutionStatuses(executionId: string): Promise<ExecutionStatuses | undefined> {
     const normalized = this.c.requireNormalizedId(executionId, 'Execution id');
     try {
-      const data = await this.c.get<Record<string, unknown>>(AgentivityHttpCore.v1(`/executions/${normalized}/inspector`));
+      const data = await this.c.get<Record<string, unknown>>(AgentivityHttpCore.v1(`/executions/${normalized}/inspector`), { dataBody: true });
       return data ? parseExecutionStatuses(data) : undefined;
     } catch {
       return undefined;

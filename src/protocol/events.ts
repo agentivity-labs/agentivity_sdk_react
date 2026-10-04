@@ -81,6 +81,8 @@ export interface StepFinishedEvent extends AgUiEventBase {
   memberEntityId?: string;
   memberEntityKind?: string;
   displayName?: string;
+  /** Set when the step ended because it failed (the reason), absent when it completed. */
+  error?: string;
 }
 
 // ── Text messages — streaming ────────────────────────────────────────────────
@@ -396,7 +398,7 @@ export function parseAgUiEvent(json: Record<string, unknown>): AgUiEvent {
     case 'STEP_STARTED':
       return { ...base, type: 'STEP_STARTED', stepName: str(json, 'stepName'), memberEntityId: opt(json, 'memberEntityId'), memberEntityKind: opt(json, 'memberEntityKind'), displayName: opt(json, 'displayName') };
     case 'STEP_FINISHED':
-      return { ...base, type: 'STEP_FINISHED', stepName: str(json, 'stepName'), memberEntityId: opt(json, 'memberEntityId'), memberEntityKind: opt(json, 'memberEntityKind'), displayName: opt(json, 'displayName') };
+      return { ...base, type: 'STEP_FINISHED', stepName: str(json, 'stepName'), memberEntityId: opt(json, 'memberEntityId'), memberEntityKind: opt(json, 'memberEntityKind'), displayName: opt(json, 'displayName'), error: opt(json, 'error') };
 
     // Text messages — streaming
     case 'TEXT_MESSAGE_START':

@@ -35,6 +35,20 @@ export function MarkdownBody({ data, textColor, linkColor, className }: Markdown
           // than one paragraph showed a large, unintended gap between them because of this one gap.
           p: (props) => <p {...props} style={{ margin: '0.4em 0' }} />,
           a: (props) => <a {...props} style={{ color: link }} />,
+          // An image in a message must never be wider than the bubble nor blow up to its natural size (a shop
+          // photo is often 2000px): fit the width, keep the ratio, request it without a Referer (some shops refuse
+          // foreign pages) and only load it when scrolled near. An address that is not http(s) renders nothing.
+          img: ({ src, alt }) =>
+            typeof src === 'string' && /^https?:\/\//i.test(src) ? (
+              <img
+                src={src}
+                alt={alt ?? ''}
+                loading="lazy"
+                decoding="async"
+                referrerPolicy="no-referrer"
+                style={{ display: 'block', maxWidth: '100%', maxHeight: 320, height: 'auto', objectFit: 'contain', borderRadius: 8, margin: '6px 0' }}
+              />
+            ) : null,
           code: (props) => {
             const { className: codeClassName, children, ...rest } = props;
             const isBlock = /language-/.test(codeClassName ?? '');

@@ -54,9 +54,9 @@ describe('artifact widgets smoke test', () => {
     expect(onSubmit).toHaveBeenCalledWith('Choix : Alpha');
   });
 
-  it('buildArtifactsRegistry contains all 20 built-in types', () => {
+  it('buildArtifactsRegistry contains all 22 built-in types', () => {
     const registry = buildArtifactsRegistry();
-    expect(Object.keys(registry)).toHaveLength(20);
+    expect(Object.keys(registry)).toHaveLength(22);
     expect(registry['BarChart']).toBeDefined();
     expect(registry['QuestionForm']).toBeDefined();
   });

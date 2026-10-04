@@ -1,4 +1,5 @@
 import { ApiException, throwIfApiFailurePayload } from './api-contract.js';
+import type { ConnectionMonitor } from './connection-monitor.js';
 
 const API_V1 = '/api/v1';
 
@@ -11,6 +12,12 @@ export interface RequestOptions {
   query?: Record<string, string | number | boolean | string[] | undefined>;
   headers?: Record<string, string>;
   signal?: AbortSignal;
+  /**
+   * The response body is data, not an error envelope: a 2xx body whose `status` is "failed" is NOT turned into an exception.
+   * For endpoints that report a run's own status (an execution's inspector says `"status": "Failed"` for a run that failed — that
+   * is the answer, not a failed request).
+   */
+  dataBody?: boolean;
 }
 
 /**
@@ -24,10 +31,23 @@ export interface RequestOptions {
 export class AgentivityHttpCore {
   private readonly baseUrl: string;
   readonly fetchImpl: typeof fetch;
+  /** Told whenever a request gets no answer (the server cannot be reached) and whenever one does. */
+  readonly monitor?: ConnectionMonitor;
 
-  constructor(args: { baseUrl: string; fetchImpl?: typeof fetch }) {
+  constructor(args: { baseUrl: string; fetchImpl?: typeof fetch; monitor?: ConnectionMonitor }) {
     this.baseUrl = normalizeBaseUrl(args.baseUrl);
     this.fetchImpl = args.fetchImpl ?? globalThis.fetch.bind(globalThis);
+    this.monitor = args.monitor;
+  }
+
+  /** Asks the server for anything (the icon catalog): true when ANY answer came back, even an error status; false when it cannot be reached. */
+  async probe(): Promise<boolean> {
+    try {
+      await this.fetchImpl(this.resolveUrl(AgentivityHttpCore.v1('/icons')), { method: 'GET', headers: { Accept: 'application/json' } });
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   static v1(path: string): string {
@@ -67,8 +87,13 @@ export class AgentivityHttpCore {
     try {
       response = await this.fetchImpl(url, { method, headers, body: payload, signal: options?.signal });
     } catch (error) {
+      // Cancelled on purpose (a component unmounted): not a connection problem.
+      if (!(error instanceof DOMException && error.name === 'AbortError')) this.monitor?.httpFailed(error instanceof Error ? error.message : String(error));
       throw ApiException.fromNetworkError(error);
     }
+    // A gateway answering for a server that is down (502/503/504) is the same as no answer; anything else proves the server is there.
+    if (response.status === 502 || response.status === 503 || response.status === 504) this.monitor?.httpFailed(`The server answered ${response.status} (${response.statusText || 'unavailable'})`);
+    else this.monitor?.httpReachable();
 
     const contentType = response.headers.get('content-type') ?? '';
     const data: unknown = contentType.includes('application/json') ? await response.json().catch(() => undefined) : undefined;
@@ -76,7 +101,7 @@ export class AgentivityHttpCore {
     if (!response.ok) {
       throw ApiException.fromResponse(data, response.status);
     }
-    throwIfApiFailurePayload(data, response.status);
+    if (!options?.dataBody) throwIfApiFailurePayload(data, response.status);
     return data as T;
   }
 

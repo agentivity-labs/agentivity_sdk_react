@@ -31,11 +31,15 @@ export function paletteColorOf(theme: ArtifactsThemeData, index: number): string
   return palette[index % palette.length]!;
 }
 
-/** Applies `alpha` to a `#RRGGBB` hex color, returning a CSS `rgba(...)` string. Passes CSS var()/named colors through unchanged. */
+/**
+ * Applies `alpha` to a color. A `#RRGGBB` hex becomes a CSS `rgba(...)` string; a CSS `var()`, a named color or any other
+ * CSS color is mixed with transparent (`color-mix`), so it stays a tint rather than turning opaque.
+ */
 export function withAlpha(color: string, alpha: number): string {
-  if (!color.startsWith('#')) return color;
   const cleaned = color.replace('#', '');
-  if (cleaned.length < 6) return color;
+  if (!color.startsWith('#') || cleaned.length < 6) {
+    return color.startsWith('#') ? color : `color-mix(in srgb, ${color} ${Math.round(alpha * 100)}%, transparent)`;
+  }
   const r = Number.parseInt(cleaned.slice(0, 2), 16);
   const g = Number.parseInt(cleaned.slice(2, 4), 16);
   const b = Number.parseInt(cleaned.slice(4, 6), 16);

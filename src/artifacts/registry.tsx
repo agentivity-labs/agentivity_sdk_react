@@ -19,6 +19,7 @@ import { QuestionForm } from './components/interaction/QuestionForm.js';
 import { RatingCard } from './components/interaction/RatingCard.js';
 import { SummaryCard } from './components/interaction/SummaryCard.js';
 import { SourceInput } from './components/interaction/SourceInput.js';
+import { ImageGallery } from './components/media/ImageGallery.js';
 
 /**
  * Returns the built-in type → builder map — port of `buildArtifactsRegistry`.
@@ -53,6 +54,9 @@ export function buildArtifactsRegistry(): AgUiWidgetRegistry {
 
     // SVG
     Svg: (props) => <Svg props={props} />,
+
+    // Media
+    ImageGallery: (props) => <ImageGallery props={props} />,
 
     // Interaction
     QuestionForm: (props) => <QuestionForm props={props} />,

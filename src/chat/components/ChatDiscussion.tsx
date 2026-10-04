@@ -5,6 +5,9 @@ import type { AgUiWidgetRegistry } from '../../artifacts/widget-registry.js';
 import { ChatMessageBubble } from './ChatMessageBubble.js';
 import { ChatInput } from './ChatInput.js';
 import { ChatActiveMemberIndicator } from './ChatActiveMemberIndicator.js';
+import { ChatRunError } from './ChatRunError.js';
+import { ChatConnectionNotice } from './ChatConnectionNotice.js';
+import { useOptionalAgentivityClient } from '../../react/AgentivityProvider.js';
 import type { AgUiChatMember, AgUiMemberAvatar } from './member-avatar.js';
 
 export interface ChatDiscussionProps {
@@ -94,6 +97,9 @@ export function ChatDiscussion({
   const threads = useSyncExternalStore(controller.subscribe, () => controller.threads);
   const pendingHilGate = useSyncExternalStore(controller.subscribe, () => controller.pendingHilGate);
   const activeMember = useSyncExternalStore(controller.subscribe, () => controller.activeMember);
+  const runError = useSyncExternalStore(controller.subscribe, () => controller.runError);
+  // Inside an AgentivityProvider the conversation says on its own when the server cannot be reached.
+  const client = useOptionalAgentivityClient();
   const awaiting = useSyncExternalStore(controller.subscribe, () => controller.isAwaitingResponse);
   const [stopping, setStopping] = useState(false);
 
@@ -179,6 +185,10 @@ export function ChatDiscussion({
               );
             })}
       </div>
+
+      {client && <ChatConnectionNotice monitor={client.connection} />}
+
+      {runError && <ChatRunError error={runError} onDismiss={() => controller.dismissRunError()} />}
 
       {showActiveMemberIndicator && activeMember && <ChatActiveMemberIndicator member={activeMember} resolveMemberAvatar={resolveMemberAvatar} />}
 

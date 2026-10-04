@@ -68,6 +68,113 @@
   object-fit: cover;
 }
 
+/* The server cannot be reached: said plainly, with the countdown to the next attempt. */
+.ag-chat-connection {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(217, 119, 6, 0.4);
+  background: rgba(217, 119, 6, 0.08);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.ag-chat-connection[data-status='online'] {
+  border-color: rgba(16, 185, 129, 0.4);
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.ag-chat-connection__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.ag-chat-connection__title {
+  font-weight: 600;
+}
+
+.ag-chat-connection__attempt {
+  opacity: 0.7;
+}
+
+.ag-chat-connection__reason {
+  margin-top: 2px;
+  font-size: 11px;
+  opacity: 0.65;
+  overflow-wrap: anywhere;
+}
+
+.ag-chat-connection__retry {
+  flex: none;
+  padding: 5px 10px;
+  border-radius: 8px;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ag-chat-connection__retry:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* The run stopped on an error: said plainly, above the input. */
+.ag-chat-run-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 4px 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(220, 38, 38, 0.35);
+  background: rgba(220, 38, 38, 0.07);
+  color: inherit;
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.ag-chat-run-error__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.ag-chat-run-error__title {
+  font-weight: 600;
+  color: #b91c1c;
+}
+
+.ag-chat-run-error__hint {
+  margin-top: 2px;
+}
+
+.ag-chat-run-error__detail {
+  margin-top: 4px;
+  font-size: 11px;
+  opacity: 0.7;
+  overflow-wrap: anywhere;
+}
+
+.ag-chat-run-error__dismiss {
+  flex: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.ag-chat-run-error__dismiss:hover {
+  opacity: 1;
+}
+
 .ag-chat-active-member {
   display: flex;
   align-items: center;
@@ -357,6 +464,80 @@
   animation: ag-team-flow 0.9s linear infinite;
 }
 
+/* The head of a directed link (chain, lanes, handoff): the same color and state as the link it ends. */
+.ag-team-graph__head {
+  fill: currentColor;
+  stroke: none;
+  opacity: 0.4;
+}
+
+.ag-team-graph__head[data-status='done'],
+.ag-team-graph__head[data-status='working'] {
+  opacity: 1;
+}
+
+.ag-team-graph__head[data-status='waiting'] {
+  opacity: 0.75;
+}
+
+/* Where a run starts and where parallel work joins — small neutral dots that fill in as the run goes. */
+.ag-team-graph__dot {
+  fill: var(--ag-team-muted, #94a3b8);
+  opacity: 0.55;
+  transition: opacity 0.4s ease, fill 0.4s ease;
+}
+
+.ag-team-graph__dot[data-status='done'] {
+  fill: var(--ag-team-done, #10b981);
+  opacity: 1;
+}
+
+/* A group chat's shared conversation: a speech bubble at the center that pulses while anyone is speaking. */
+.ag-team-graph__center-bubble {
+  fill: var(--ag-team-node-fill, #fff);
+  stroke: var(--ag-team-node-stroke, #c8ccd4);
+  stroke-width: 2;
+}
+
+.ag-team-graph__center-dot {
+  fill: var(--ag-team-muted, #94a3b8);
+}
+
+.ag-team-graph__center[data-status='working'] .ag-team-graph__center-bubble {
+  stroke: var(--ag-team-working, #f1633b);
+  animation: ag-team-blink 2.6s ease-in-out infinite;
+}
+
+.ag-team-graph__center[data-status='waiting'] .ag-team-graph__center-bubble {
+  stroke: var(--ag-team-waiting, #e3a94f);
+}
+
+.ag-team-graph__center[data-status='done'] .ag-team-graph__center-bubble {
+  stroke: var(--ag-team-done, #10b981);
+}
+
+/* The band that holds many parallel members: they all work at once. */
+.ag-team-graph__band {
+  fill: var(--ag-team-muted, #94a3b8);
+  fill-opacity: 0.08;
+  stroke: var(--ag-team-muted, #94a3b8);
+  stroke-opacity: 0.45;
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+}
+
+/* A chain's step number, on the member's hexagon. */
+.ag-team-graph__order circle {
+  fill: var(--ag-team-node-fill, #fff);
+  stroke: currentColor;
+  stroke-width: 1.4;
+}
+
+.ag-team-graph__order text {
+  fill: currentColor;
+  font-weight: 600;
+}
+
 /* The zone behind a group: its members' positions thickened into one soft rounded shape. */
 .ag-team-graph__zone {
   fill: currentColor;
@@ -453,6 +634,11 @@
 .ag-team-graph__label {
   font-size: 8.5px;
   fill: currentColor;
+  /* A halo in the background's color keeps a name readable when a link crosses it. */
+  paint-order: stroke;
+  stroke: var(--ag-team-node-fill, #fff);
+  stroke-width: 3px;
+  stroke-linejoin: round;
 }
 
 @keyframes ag-team-pulse {
@@ -467,6 +653,7 @@
 @media (prefers-reduced-motion: reduce) {
   .ag-team-roster__member[data-status='working'] .ag-team-roster__avatar,
   .ag-team-graph__node[data-status='working'],
+  .ag-team-graph__center[data-status='working'] .ag-team-graph__center-bubble,
   .ag-team-graph__edge[data-status='working'] {
     animation: none;
   }

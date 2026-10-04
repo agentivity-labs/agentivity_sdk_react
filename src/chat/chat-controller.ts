@@ -3,6 +3,15 @@ import { chatMessageRoleFromRaw, parseContentBlocks, type ChatHilGate, type Chat
 
 type Listener = () => void;
 
+/**
+ * Why a run ended with an error. `message` is for the person using the app; `code` (when the platform has one for the
+ * failure — `llm_billing` for an account out of credit, `llm_auth`, `llm_rate_limited`, `llm_unavailable`, …) lets the app word it.
+ */
+export interface AgUiRunError {
+  message: string;
+  code?: string;
+}
+
 /** The Team member currently taking its turn — set from `STEP_STARTED`, cleared on `STEP_FINISHED`. */
 export interface ActiveChatMember {
   memberEntityId?: string;
@@ -64,6 +73,7 @@ export class ChatController {
   private isAwaitingResponseState = false;
   private pendingHilGateState: ChatHilGate | undefined;
   private activeMemberState: ActiveChatMember | undefined;
+  private runErrorState: AgUiRunError | undefined;
   // Replaced (never mutated) on every change so it is a stable useSyncExternalStore snapshot.
   private memberStatusesState: ReadonlyMap<string, TeamMemberStatus> = new Map();
   // Same shape as memberStatusesState, keyed by stepName instead of memberEntityId — set
@@ -107,6 +117,21 @@ export class ChatController {
    */
   get activeMember(): ActiveChatMember | undefined {
     return this.activeMemberState;
+  }
+
+  /**
+   * Why the last run ended with an error, or `undefined` (no error, or it was dismissed / a new run started). Powers the
+   * notice `ChatDiscussion` shows — a run that stops on an account out of credit must never just look stuck.
+   */
+  get runError(): AgUiRunError | undefined {
+    return this.runErrorState;
+  }
+
+  /** Hides the error notice of the last run. */
+  dismissRunError(): void {
+    if (!this.runErrorState) return;
+    this.runErrorState = undefined;
+    this.notify();
   }
 
   /**
@@ -218,6 +243,7 @@ export class ChatController {
     this.pendingHilGateState = undefined;
     this.isAwaitingResponseState = false;
     this.activeMemberState = undefined;
+    this.runErrorState = undefined;
     this.memberStatusesState = new Map();
     this.stepStatusesState = new Map();
     this.inProgress.clear();
@@ -232,6 +258,7 @@ export class ChatController {
       // Run lifecycle → drive isAwaitingResponse
       case 'RUN_STARTED':
         this.isAwaitingResponseState = true;
+        this.runErrorState = undefined;
         this.notify();
         break;
 
@@ -261,6 +288,7 @@ export class ChatController {
       case 'RUN_ERROR':
         this.isAwaitingResponseState = false;
         this.activeMemberState = undefined;
+        this.runErrorState = { message: event.message, code: event.code };
         this.settleWorkingMembers(false);
         this.settleWorkingSteps(false);
         this.notify();
@@ -283,11 +311,13 @@ export class ChatController {
         break;
 
       case 'STEP_FINISHED': {
-        if (event.stepName) this.setStepStatus(event.stepName, 'done');
+        // A step that ended because it failed says so (`error`): its member is shown as failed, not as done.
+        const outcome = event.error ? 'failed' : 'done';
+        if (event.stepName) this.setStepStatus(event.stepName, outcome);
         const hadActiveMember = this.activeMemberState || event.memberEntityId;
         if (hadActiveMember) {
           this.activeMemberState = undefined;
-          if (event.memberEntityId) this.setMemberStatus(event.memberEntityId, 'done');
+          if (event.memberEntityId) this.setMemberStatus(event.memberEntityId, outcome);
         }
         if (event.stepName || hadActiveMember) this.notify();
         break;
