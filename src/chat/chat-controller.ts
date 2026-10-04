@@ -212,6 +212,12 @@ export class ChatController {
 
   /** Appends (or replaces, by id) `message` in `threadId`'s local message list. */
   addMessage(threadId: string, message: ChatMessage): void {
+    // A message restored from history (the conversations API) carries its widgets only as the raw `blocks` of its metadata: read
+    // them back, or the conversation reopens with empty bubbles where the cards and charts were.
+    if (!message.blocks) {
+      const restored = parseContentBlocks(message.metadata?.['blocks']);
+      if (restored) message = { ...message, blocks: restored };
+    }
     const existing = [...(this.messagesByThread.get(threadId) ?? [])];
     const idx = existing.findIndex((m) => m.id === message.id);
     if (idx >= 0) {
