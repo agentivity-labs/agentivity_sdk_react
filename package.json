@@ -2,7 +2,7 @@
   "name": "@agentivity-labs/sdk-react",
   "version": "0.1.0",
   "description": "The React/TypeScript SDK for building applications against the Agentivity platform: a real-time AG-UI-protocol client and a platform API client. For building new apps and integrations — not for administering the platform (creating/editing workflows, agents, teams, or credentials stays inside Agentivity Studio).",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "private": false,
   "type": "module",
   "main": "./dist/index.cjs",
