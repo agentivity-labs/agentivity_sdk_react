@@ -180,6 +180,8 @@ export interface ExecutionRecord {
   currentRunId?: string;
   createdAt?: string;
   updatedAt?: string;
+  /** Why the execution failed, when it did (`state` is `failed`). */
+  error?: string;
 }
 
 export function parseExecutionRecord(json: Record<string, unknown>): ExecutionRecord {
@@ -199,6 +201,7 @@ export function parseExecutionRecord(json: Record<string, unknown>): ExecutionRe
     currentRunId: json['currentRunId'] != null ? String(json['currentRunId']) : undefined,
     createdAt: json['createdAt'] != null ? String(json['createdAt']) : undefined,
     updatedAt: json['updatedAt'] != null ? String(json['updatedAt']) : undefined,
+    error: typeof json['error'] === 'string' && json['error'].trim() ? json['error'].trim() : undefined,
   };
 }
 
