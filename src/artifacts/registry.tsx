@@ -1,4 +1,4 @@
-import type { AgUiWidgetRegistry } from './widget-registry.js';
+import { displayWidget, type AgUiWidgetRegistry } from './widget-registry.js';
 import { BarChart } from './components/charts/BarChart.js';
 import { LineChart, AreaChart } from './components/charts/LineChart.js';
 import { PieChart } from './components/charts/PieChart.js';
@@ -30,33 +30,33 @@ import { ImageGallery } from './components/media/ImageGallery.js';
 export function buildArtifactsRegistry(): AgUiWidgetRegistry {
   return {
     // Charts
-    BarChart: (props) => <BarChart props={props} />,
-    LineChart: (props) => <LineChart props={props} />,
-    PieChart: (props) => <PieChart props={props} />,
-    AreaChart: (props) => <AreaChart props={props} />,
-    RadarChart: (props) => <RadarChart props={props} />,
+    BarChart: displayWidget((props) => <BarChart props={props} />),
+    LineChart: displayWidget((props) => <LineChart props={props} />),
+    PieChart: displayWidget((props) => <PieChart props={props} />),
+    AreaChart: displayWidget((props) => <AreaChart props={props} />),
+    RadarChart: displayWidget((props) => <RadarChart props={props} />),
 
     // Data
-    MetricCard: (props) => <MetricCard props={props} />,
-    StatGrid: (props) => <StatGrid props={props} />,
-    KeyValue: (props) => <KeyValue props={props} />,
+    MetricCard: displayWidget((props) => <MetricCard props={props} />),
+    StatGrid: displayWidget((props) => <StatGrid props={props} />),
+    KeyValue: displayWidget((props) => <KeyValue props={props} />),
 
     // Code
-    CodeBlock: (props) => <CodeBlock props={props} />,
-    JsonViewer: (props) => <JsonViewer props={props} />,
+    CodeBlock: displayWidget((props) => <CodeBlock props={props} />),
+    JsonViewer: displayWidget((props) => <JsonViewer props={props} />),
 
     // Status
-    StatusCard: (props) => <StatusCard props={props} />,
-    Timeline: (props) => <Timeline props={props} />,
+    StatusCard: displayWidget((props) => <StatusCard props={props} />),
+    Timeline: displayWidget((props) => <Timeline props={props} />),
 
     // Math
-    Latex: (props) => <Latex props={props} />,
+    Latex: displayWidget((props) => <Latex props={props} />),
 
     // SVG
-    Svg: (props) => <Svg props={props} />,
+    Svg: displayWidget((props) => <Svg props={props} />),
 
     // Media
-    ImageGallery: (props) => <ImageGallery props={props} />,
+    ImageGallery: displayWidget((props) => <ImageGallery props={props} />),
 
     // Interaction
     QuestionForm: (props) => <QuestionForm props={props} />,
@@ -64,7 +64,8 @@ export function buildArtifactsRegistry(): AgUiWidgetRegistry {
     ConfirmCard: (props) => <ConfirmCard props={props} />,
     RatingCard: (props) => <RatingCard props={props} />,
     DatePickerCard: (props) => <DatePickerCard props={props} />,
-    SummaryCard: (props) => <SummaryCard props={props} />,
     SourceInput: (props) => <SourceInput props={props} />,
+    // Recaps what was collected and asks nothing itself.
+    SummaryCard: displayWidget((props) => <SummaryCard props={props} />),
   };
 }

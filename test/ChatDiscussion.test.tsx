@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { ChatDiscussion } from '../src/chat/components/ChatDiscussion.js';
 import { ChatController } from '../src/chat/chat-controller.js';
+import { displayWidget } from '../src/artifacts/widget-registry.js';
 
 describe('ChatDiscussion', () => {
   it('renders messages fed into the controller and calls onSend for a plain message', async () => {
@@ -33,5 +34,26 @@ describe('ChatDiscussion', () => {
     await user.type(screen.getByPlaceholderText('Your answer…'), 'yes{Enter}');
     expect(onHilResponse).toHaveBeenCalledWith({ requestId: 'req1', threadId: 't1', question: 'Approve?', title: 'Approval' }, 'yes', 'text');
     expect(onSend).not.toHaveBeenCalled();
+  });
+
+  it('keeps the open question answerable when a display widget arrives after it, and never dims that display widget', async () => {
+    const controller = new ChatController({ contextId: 'ctx1' });
+    controller.addThread({ threadId: 't1', contextId: 'ctx1', runId: '', title: '', isDefault: true, status: 'active' });
+    controller.feedEvent({ type: 'CUSTOM', name: 'HotelChoice', value: {} });
+    controller.setHilGate({ requestId: 'req1', threadId: 't1', question: 'Which hotel?', title: 'Hotels' });
+    controller.feedEvent({ type: 'CUSTOM', name: 'TripCover', value: {} });
+
+    const registry = {
+      HotelChoice: (props: Record<string, unknown>) => <button onClick={() => (props['__onSubmit'] as (r: string) => void)('Alfama')}>choose</button>,
+      TripCover: displayWidget(() => <div data-testid="cover" />),
+    };
+    const onHilResponse = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(<ChatDiscussion controller={controller} onSend={vi.fn()} onHilResponse={onHilResponse} widgetRegistry={registry} />);
+
+    expect(screen.getByTestId('cover').parentElement!.style.opacity).toBe('');
+    expect(screen.getByText('choose').parentElement!.style.pointerEvents).toBe('');
+    await user.click(screen.getByText('choose'));
+    expect(onHilResponse).toHaveBeenCalledWith(expect.objectContaining({ requestId: 'req1' }), 'Alfama', 'widget');
   });
 });

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import type { ChatController } from '../chat-controller.js';
 import type { ChatHilGate, ChatMessage } from '../chat-models.js';
-import type { AgUiWidgetRegistry } from '../../artifacts/widget-registry.js';
+import { isDisplayWidget, type AgUiWidgetRegistry } from '../../artifacts/widget-registry.js';
 import { ChatMessageBubble } from './ChatMessageBubble.js';
 import { ChatInput } from './ChatInput.js';
 import { ChatActiveMemberIndicator } from './ChatActiveMemberIndicator.js';
@@ -131,13 +131,16 @@ export function ChatDiscussion({
   // Only the most recent message carrying an interactive widget may still be
   // answered — every earlier widget (resolved, or superseded by a later gate)
   // renders read-only.
+  // A display widget (a chart, a cover image) is skipped: arriving after the question, it must not
+  // take the question's place and leave the real one read-only.
   const lastWidgetIndex = useMemo(() => {
+    const asks = (type: unknown) => typeof type === 'string' && !isDisplayWidget(widgetRegistry?.[type]);
     for (let i = messages.length - 1; i >= 0; i--) {
       const m = messages[i]!;
-      if ((m.blocks && m.blocks.some((b) => b.type !== 'text')) || typeof m.metadata?.['widgetType'] === 'string') return i;
+      if ((m.blocks && m.blocks.some((b) => b.type !== 'text' && asks(b.type))) || asks(m.metadata?.['widgetType'])) return i;
     }
     return -1;
-  }, [messages]);
+  }, [messages, widgetRegistry]);
 
   async function submitHilResponse(text: string, source = 'text') {
     const trimmed = text.trim();

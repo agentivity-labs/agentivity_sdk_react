@@ -360,6 +360,13 @@
   user-select: none;
 }
 
+/* A graph that is only a picture (`interactive={false}`): it does not grab the wheel or the drag from the page. */
+.ag-team-graph[data-interactive='false'],
+.ag-workflow-graph[data-interactive='false'] {
+  cursor: default;
+  touch-action: auto;
+}
+
 .ag-team-graph:active {
   cursor: grabbing;
 }
@@ -699,6 +706,14 @@
      used to clip the drawing against that stale rectangle instead of against the box the viewer
      actually sees. */
   overflow: hidden;
+}
+
+/* camera="follow": the frame is a viewer of its own, not the shape of the diagram. It takes the height of its host when the host fixes
+   one (`height: 100%` resolves), and otherwise a 16:9 box, never under a readable minimum. The drawing is clipped by this frame only. */
+.ag-workflow-graph-fit[data-camera='follow'] {
+  aspect-ratio: 16 / 9;
+  height: 100%;
+  min-height: 240px;
 }
 
 .ag-workflow-graph {

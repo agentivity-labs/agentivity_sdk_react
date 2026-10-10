@@ -134,6 +134,39 @@ function AgentChat({ agentId }: { agentId: string }) {
 }
 ```
 
+### Graphs from JSON (a catalog, a preview, a documentation page)
+
+`TemplateGraph` draws a team (its members and how they work together) or a workflow (its flow) from the JSON alone: no run, no chat, no controller.
+
+```tsx
+import { TemplateGraph } from '@agentivity-labs/sdk-react';
+import '@agentivity-labs/sdk-react/styles.css';
+
+// `template` is a Template file; the graph is the one of its root, and the other entities give names to the members.
+<TemplateGraph source={template} autoplay />
+```
+
+`source` is anything `resolveRenderable` accepts, as an object or as JSON text: a **Template file** (`schema: "agentivity.template"`),
+the **root payload** of the marketplace (`GET /api/v1/templates/{id}/root`: the catalog wrapper plus a `members` map), the catalog **wrapper**
+`{ kind, name, entryJson }`, or a **bare** team / workflow / agent. An agent is drawn as the graph inside it. Something that cannot be drawn
+shows a short message instead of throwing (`resolveRenderable` itself throws a `RenderableError` with a `code`).
+
+- `autoplay` lights the members (or the steps) up one after the other, as a run would. It is off by default and never plays for a visitor who
+  prefers reduced motion; `stepMs` sets how long each step stays lit.
+- `interactive` (default **false**) lets the visitor drag, zoom and fit the drawing. A catalog page scrolls, so by default the wheel scrolls the page.
+- `camera` (`'fit'` by default) is for a workflow, and for the graph inside an agent; a team is not affected. `fit` keeps the whole diagram in
+  view, which makes a long workflow a thin strip. `follow` opens on the start node at a readable scale and, with `autoplay`, glides from one
+  active node to the next (back to the start when the loop begins again); without `autoplay`, or for a visitor who prefers reduced motion,
+  it is a still picture centred on the start. In `follow` the frame is a viewer of its own: it takes the height its host gives it
+  (`height: 100%` of a parent whose height is fixed), otherwise it is 16:9 with a minimum of 240 px, and the drawing is clipped by that frame
+  only. A gesture of the visitor takes the camera until the recenter button gives it back.
+- `resolveMemberAvatar` maps a member to an image or emoji of your own; by default the icon and group color of the team editor are used.
+- The drawing fills the width it is given and sets its own height (a graph keeps its proportions): give it a column, not a fixed height. (Only `camera="follow"` on a workflow uses the height you give it.)
+
+`TeamGraph` and `WorkflowGraph` also work without a `controller` now (a still picture, or driven by `statuses`); `WorkflowGraph` takes
+`camera="fit"` to keep the whole diagram in view instead of following the running step. The standalone `<agentivity-graph>` has the same
+`camera="follow"` / `"fit"` attribute: `<agentivity-graph src="…/root" camera="follow" autoplay interactive style="height: 420px">`.
+
 ## Development
 
 ```bash

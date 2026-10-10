@@ -8,7 +8,11 @@ import { memberAvatarFor, teamMemberShortName, teamMemberStatusText, type AgUiTe
 import { groupsFor, pillWidth, sceneFor, shorten, type SceneEdge, type SceneGroup, type TeamScene } from './team-layouts.js';
 
 export interface TeamGraphProps {
-  controller: ChatController;
+  /**
+   * The chat whose run the graph follows. Optional: without one the graph is a still picture of the team (draw it from `statuses`,
+   * or leave it at rest) — what a catalog or a preview needs, where no run exists.
+   */
+  controller?: ChatController;
   /** Every member of the Team. */
   members: AgUiTeamMember[];
   /** The coordinating member (a manager), drawn in the middle and linked to every group. Omit to draw the groups around a neutral center. */
@@ -31,6 +35,11 @@ export interface TeamGraphProps {
    * before this page was open.
    */
   statuses?: ReadonlyMap<string, TeamMemberStatus>;
+  /**
+   * Whether the visitor can drag, zoom (wheel, pinch) and fit the graph. Default true. Turn it off for a graph on a page that scrolls
+   * (a catalog, a documentation page): the wheel then scrolls the page instead of zooming the drawing.
+   */
+  interactive?: boolean;
   className?: string;
 }
 
@@ -180,6 +189,9 @@ function layout(others: AgUiTeamMember[], frame: Frame): Branch[] {
   });
 }
 
+const noSubscribe = () => () => {};
+const NO_MEMBER_STATUSES: ReadonlyMap<string, TeamMemberStatus> = new Map();
+
 /**
  * The whole Team as a constellation: an optional hub in the middle, one branch per group (named, in its color) and every
  * member a small hexagon with its icon and its name underneath. Each member is lit by its live status — working now
@@ -187,8 +199,8 @@ function layout(others: AgUiTeamMember[], frame: Frame): Branch[] {
  * link). Driven by {@link ChatController.memberStatuses}; optional and independent of `ChatDiscussion`. Structural markup
  * with `ag-team-graph*` classes (default look in `styles.css`).
  */
-export function TeamGraph({ controller, members, hubMemberId, topology: topologyProp, resolveMemberAvatar, restingColors, statuses: statusesProp, className }: TeamGraphProps) {
-  const streamStatuses = useSyncExternalStore(controller.subscribe, () => controller.memberStatuses);
+export function TeamGraph({ controller, members, hubMemberId, topology: topologyProp, resolveMemberAvatar, restingColors, statuses: statusesProp, interactive = true, className }: TeamGraphProps) {
+  const streamStatuses = useSyncExternalStore(controller?.subscribe ?? noSubscribe, () => controller?.memberStatuses ?? NO_MEMBER_STATUSES);
   const statuses = statusesProp ?? streamStatuses;
   // The graph fills the box it is given: it measures it and lays the ring out to fit.
   const fit = useRef<HTMLDivElement>(null);
@@ -205,7 +217,7 @@ export function TeamGraph({ controller, members, hubMemberId, topology: topology
   }, []);
   const frame = useMemo(() => frameFor(box), [box]);
   const svgRef = useRef<SVGSVGElement>(null);
-  const [view, fitView] = usePanZoom(svgRef);
+  const [view, fitView] = usePanZoom(svgRef, interactive);
 
   const groupColors = useMemo(() => teamGroupColors(members.map((m) => m.group), groupColorOverrides(members)), [members]);
 
@@ -386,7 +398,7 @@ export function TeamGraph({ controller, members, hubMemberId, topology: topology
 
   return (
     <div ref={fit} className="ag-team-graph-fit">
-    <svg ref={svgRef} className={cx('ag-team-graph', className)} data-topology={scene ? topology?.kind : 'constellation'} data-run={statuses.size > 0 ? 'active' : 'none'} data-resting={restingColors ? 'true' : undefined} viewBox={`0 0 ${frame.width.toFixed(1)} ${frame.height.toFixed(1)}`} role="img" aria-label="Team">
+    <svg ref={svgRef} className={cx('ag-team-graph', className)} data-interactive={interactive ? undefined : 'false'} data-topology={scene ? topology?.kind : 'constellation'} data-run={statuses.size > 0 ? 'active' : 'none'} data-resting={restingColors ? 'true' : undefined} viewBox={`0 0 ${frame.width.toFixed(1)} ${frame.height.toFixed(1)}`} role="img" aria-label="Team">
       <g className="ag-team-graph__viewport" transform={`translate(${view.x.toFixed(2)} ${view.y.toFixed(2)}) scale(${view.k.toFixed(4)})`}>
       {scene ? sceneBody(scene) : <>
       {branches.map((branch, b) => {
@@ -409,9 +421,11 @@ export function TeamGraph({ controller, members, hubMemberId, topology: topology
       </>}
       </g>
     </svg>
-    <button type="button" className="ag-team-graph__fit" onClick={fitView} title="Fit to view" aria-label="Fit to view">
-      <Icon icon={materialIcon('E28C')} />
-    </button>
+    {interactive && (
+      <button type="button" className="ag-team-graph__fit" onClick={fitView} title="Fit to view" aria-label="Fit to view">
+        <Icon icon={materialIcon('E28C')} />
+      </button>
+    )}
     </div>
   );
 }
@@ -438,12 +452,12 @@ const zoomAt = (view: View, at: Point, factor: number): View => {
  * Pan and zoom of the graph: drag (mouse or one finger) to move, wheel or pinch to zoom around the pointer/fingers.
  * Returns the current view and a way back to the fitted one.
  */
-function usePanZoom(svgRef: RefObject<SVGSVGElement | null>): [View, () => void] {
+function usePanZoom(svgRef: RefObject<SVGSVGElement | null>, enabled: boolean): [View, () => void] {
   const [view, setView] = useState<View>(FITTED);
 
   useEffect(() => {
     const svg = svgRef.current;
-    if (!svg) return;
+    if (!svg || !enabled) return;
     const pointers = new Map<number, Point>();
     let pinch: { dist: number; mid: Point } | null = null;
 
@@ -509,7 +523,7 @@ function usePanZoom(svgRef: RefObject<SVGSVGElement | null>): [View, () => void]
       svg.removeEventListener('pointerup', onUp);
       svg.removeEventListener('pointercancel', onUp);
     };
-  }, [svgRef]);
+  }, [svgRef, enabled]);
 
   return [view, () => setView(FITTED)];
 }
