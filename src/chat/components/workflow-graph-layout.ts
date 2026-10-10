@@ -17,6 +17,9 @@ export interface WorkflowLayout {
 const COL_GAP = 132;
 const ROW_GAP = 92;
 const MARGIN = 56;
+// A graph smaller than this is centered in it, so a lone node is drawn at its normal size instead of being zoomed to fill the view.
+const MIN_WIDTH = 880;
+const MIN_HEIGHT = 330;
 
 export const edgeKey = (from: string, to: string): string => `${from}->${to}`;
 
@@ -108,24 +111,25 @@ export function layoutWorkflowGraph(structure: WorkflowGraphStructure): Workflow
   for (const id of ids) place(id); // anything still unplaced (disconnected from every root)
 
   const maxRows = Math.max(1, ...[...layers.values()].map((l) => l.length));
+  const maxLayer = Math.max(0, ...[...layers.keys()]);
+  const naturalWidth = MARGIN * 2 + maxLayer * COL_GAP;
+  const naturalHeight = MARGIN * 2 + (maxRows - 1) * ROW_GAP;
+  const width = Math.max(naturalWidth, MIN_WIDTH);
+  const height = Math.max(naturalHeight, MIN_HEIGHT);
+  const offsetX = (width - naturalWidth) / 2;
+  const offsetY = (height - naturalHeight) / 2;
   const positions = new Map<string, Point>();
   for (const [l, idsInLayer] of layers) {
     const total = idsInLayer.length;
     idsInLayer.forEach((id, i) => {
       positions.set(id, {
-        x: MARGIN + l * COL_GAP,
-        y: MARGIN + ((maxRows - total) / 2 + i) * ROW_GAP,
+        x: offsetX + MARGIN + l * COL_GAP,
+        y: offsetY + MARGIN + ((maxRows - total) / 2 + i) * ROW_GAP,
       });
     });
   }
 
-  const maxLayer = Math.max(0, ...[...layers.keys()]);
-  return {
-    positions,
-    width: MARGIN * 2 + maxLayer * COL_GAP,
-    height: MARGIN * 2 + (maxRows - 1) * ROW_GAP,
-    backEdges,
-  };
+  return { positions, width, height, backEdges };
 }
 
 /** A left-to-right S-curve between two node centers — the standard flowchart connector shape. */

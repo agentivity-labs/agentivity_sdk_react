@@ -1,5 +1,5 @@
 import type { ChatMessage } from '../chat-models.js';
-import type { AgUiWidgetRegistry } from '../../artifacts/widget-registry.js';
+import { isDisplayWidget, type AgUiComponentBuilder, type AgUiWidgetRegistry } from '../../artifacts/widget-registry.js';
 import { MarkdownBody } from '../../ag-ui/components/MarkdownBody.js';
 import { MemberAvatar, type AgUiChatMember, type AgUiMemberAvatar } from './member-avatar.js';
 
@@ -8,8 +8,9 @@ export interface ChatMessageBubbleProps {
   widgetRegistry?: AgUiWidgetRegistry;
   /**
    * Whether this message's widget (if any) is still awaiting a response.
-   * When `false`, the widget renders read-only (dimmed, inert) — it belongs
-   * to a resolved or superseded HIL gate.
+   * When `false`, a widget that asked something renders read-only (dimmed,
+   * inert) — it belongs to a resolved or superseded HIL gate. A display widget
+   * (see `displayWidget`) is never dimmed: it is a result, not a question.
    */
   enabled?: boolean;
   /** Called with the widget's response when the consumer submits it (e.g. ChoiceCard). */
@@ -61,7 +62,8 @@ export function ChatMessageBubble({ message, widgetRegistry, enabled = false, on
     return <div className={cx('ag-chat-system-message', className)}>{message.text}</div>;
   }
 
-  const dimStyle = enabled ? undefined : ({ opacity: 0.55, pointerEvents: 'none' } as const);
+  const dimStyle = (builder: AgUiComponentBuilder) =>
+    enabled || isDisplayWidget(builder) ? undefined : ({ opacity: 0.55, pointerEvents: 'none' } as const);
   const submitProps = onWidgetSubmit ? { __onSubmit: onWidgetSubmit } : {};
 
   // Multi-block messages (e.g. intro text + a widget in one call). Rendered
@@ -79,7 +81,7 @@ export function ChatMessageBubble({ message, widgetRegistry, enabled = false, on
               const builder = widgetRegistry?.[block.type];
               if (!builder) return null;
               return (
-                <div key={i} className="ag-chat-widget-block" style={dimStyle}>
+                <div key={i} className="ag-chat-widget-block" style={dimStyle(builder)}>
                   {builder({ ...block.widgetProps, ...submitProps })}
                 </div>
               );
@@ -102,7 +104,7 @@ export function ChatMessageBubble({ message, widgetRegistry, enabled = false, on
         <>
           {speakerLabel}
           <div className={cx('ag-chat-bubble-row ag-chat-bubble-row--assistant', className)}>
-            <div className="ag-chat-widget-block" style={dimStyle}>
+            <div className="ag-chat-widget-block" style={dimStyle(builder)}>
               {builder({ ...baseProps, ...submitProps })}
             </div>
           </div>

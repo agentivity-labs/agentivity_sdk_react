@@ -139,6 +139,12 @@ export type { TeamStructure, TeamMemberPosition, TeamConnectionDefinition } from
 export { WorkflowGraph } from './chat/components/WorkflowGraph.js';
 export type { WorkflowGraphProps } from './chat/components/WorkflowGraph.js';
 export { parseWorkflowGraph } from './client/domain/workflow-graph-models.js';
+
+// Graphs of anything the platform describes (a Template, a team, a workflow, an agent), from the JSON alone — no run needed.
+export { TemplateGraph, workflowWalk } from './graph/TemplateGraph.js';
+export type { TemplateGraphProps } from './graph/TemplateGraph.js';
+export { resolveRenderable, tryResolveRenderable, RenderableError } from './graph/renderable.js';
+export type { Renderable, RenderableEntity, RenderableKind } from './graph/renderable.js';
 export type { WorkflowGraphStructure, WorkflowGraphNode, WorkflowGraphEdge, WorkflowNodeKind } from './client/domain/workflow-graph-models.js';
 
 // Icons: a reference (the backend's NodeIconDef shape), its renderer, and the catalog a picker reads.
@@ -152,6 +158,7 @@ export { IconsApi } from './client/api/icons-api.js';
 
 // ── Artifacts: widget registry + bundle ──────────────────────────────────────
 export type { AgUiComponentBuilder, AgUiWidgetRegistry } from './artifacts/widget-registry.js';
+export { displayWidget, isDisplayWidget } from './artifacts/widget-registry.js';
 export { buildArtifactsRegistry } from './artifacts/registry.js';
 export { buildArtifactsBundle } from './artifacts/bundle.js';
 

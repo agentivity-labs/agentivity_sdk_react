@@ -6,7 +6,11 @@ import { Icon } from '../../icons/Icon.js';
 import { materialIcon } from '../../icons/icon-ref.js';
 
 export interface WorkflowGraphProps {
-  controller: ChatController;
+  /**
+   * The chat whose run the graph follows. Optional: without one the graph is a still picture of the workflow (draw it from
+   * `statuses`, or leave it at rest) — what a catalog or a preview needs, where no run exists.
+   */
+  controller?: ChatController;
   /** The workflow's flow structure — from `client.entities.fetchWorkflowGraph(workflowId)`. */
   structure: WorkflowGraphStructure;
   /**
@@ -16,6 +20,21 @@ export interface WorkflowGraphProps {
    * for anything that happened before this page was open.
    */
   statuses?: ReadonlyMap<string, WorkflowStepStatus>;
+  /**
+   * Where the camera looks. `follow` (the default) opens on the start node and glides to whichever node is running — right for
+   * a live run. `fit` keeps the whole diagram in view and never moves by itself — right for a catalog, a preview or a
+   * documentation page, where nobody runs the workflow (the visitor can still drag and zoom).
+   *
+   * In `follow` the frame is a viewer of its own: it takes the height its host gives it (`height: 100%` of a parent with a definite
+   * height) and otherwise a 16:9 box (never under a readable minimum), and the drawing is clipped by that frame only — never by the
+   * bounds of the diagram. In `fit` the frame has the ratio of the diagram, as before.
+   */
+  camera?: 'follow' | 'fit';
+  /**
+   * Whether the visitor can drag, zoom (wheel, pinch) and fit the diagram. Default true. Turn it off for a diagram on a page that scrolls
+   * (a catalog, a documentation page): the wheel then scrolls the page instead of zooming the drawing.
+   */
+  interactive?: boolean;
   className?: string;
 }
 
@@ -35,6 +54,11 @@ const FOCUS_SPAN = 360;
 /** The zoom level that brings `FOCUS_SPAN` layout units into view, clamped to the same range manual zoom uses. */
 function focusZoomFor(layout: { width: number }): number {
   return layout.width > 0 ? Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, layout.width / FOCUS_SPAN)) : 1;
+}
+
+/** The view that puts `point` in the middle of a diagram of `width` x `height` layout units at zoom `k`. */
+function viewOn(point: Point, k: number, width: number, height: number): View {
+  return { k, x: width / 2 - point.x * k, y: height / 2 - point.y * k };
 }
 
 /** One glyph + CSS color-role per node kind — see `--ag-workflow-*` tokens in `styles.css` for how to retheme. */
@@ -62,6 +86,9 @@ function useActiveNodeId(structure: WorkflowGraphStructure, statuses: ReadonlyMa
   }, [structure, statuses]);
 }
 
+const noSubscribe = () => () => {};
+const NO_STEP_STATUSES: ReadonlyMap<string, WorkflowStepStatus> = new Map();
+
 /**
  * A Workflow's node graph as a flow diagram — same live-status idea as `TeamGraph` (driven by
  * `ChatController`, lights up as the run reaches each node) but for a Workflow's actual node
@@ -72,26 +99,39 @@ function useActiveNodeId(structure: WorkflowGraphStructure, statuses: ReadonlyMa
  * "Recenter" button hands control back. Optional and independent of `ChatDiscussion`. Structural
  * markup with `ag-workflow-graph*` classes (default look in `styles.css`).
  */
-export function WorkflowGraph({ controller, structure, statuses: statusesProp, className }: WorkflowGraphProps) {
-  const streamStatuses = useSyncExternalStore(controller.subscribe, () => controller.stepStatuses);
+export function WorkflowGraph({ controller, structure, statuses: statusesProp, camera = 'follow', interactive = true, className }: WorkflowGraphProps) {
+  const streamStatuses = useSyncExternalStore(controller?.subscribe ?? noSubscribe, () => controller?.stepStatuses ?? NO_STEP_STATUSES);
   const statuses = statusesProp ?? streamStatuses;
   const fit = useRef<HTMLDivElement>(null);
 
   const layout = useMemo(() => layoutWorkflowGraph(structure), [structure]);
   const svgRef = useRef<SVGSVGElement>(null);
   const followRef = useRef(true);
-  const { view, smooth, focusOn, recenter } = usePanZoom(svgRef, layout.width, layout.height, () => {
-    followRef.current = false;
-  });
+  // In `follow` the first image is already the one on the start node (no flash of the whole diagram, no glide at opening).
+  const startId = structure.entryNodeId ?? structure.nodes[0]?.id;
+  const startAt = startId ? layout.positions.get(startId) : undefined;
+  const initialView = camera === 'follow' && startAt ? viewOn(startAt, focusZoomFor(layout), layout.width, layout.height) : undefined;
+  const { view, smooth, focusOn, recenter } = usePanZoom(
+    svgRef,
+    layout.width,
+    layout.height,
+    () => {
+      followRef.current = false;
+    },
+    interactive,
+    initialView,
+  );
 
   const activeNodeId = useActiveNodeId(structure, statuses);
   const seenActiveRef = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (!followRef.current || !activeNodeId || activeNodeId === seenActiveRef.current) return;
+    if (camera === 'fit' || !followRef.current || !activeNodeId || activeNodeId === seenActiveRef.current) return;
+    const first = seenActiveRef.current === undefined;
     seenActiveRef.current = activeNodeId;
     const at = layout.positions.get(activeNodeId);
-    if (at) focusOn(at, focusZoomFor(layout));
-  }, [activeNodeId, layout, focusOn]);
+    // The opening is not animated: it is the picture the visitor sees first, and the one a still image keeps.
+    if (at) focusOn(at, focusZoomFor(layout), !first);
+  }, [activeNodeId, layout, focusOn, camera]);
 
   const statusOf = (id: string): WorkflowStepStatus | 'idle' => statuses.get(id) ?? 'idle';
 
@@ -115,10 +155,16 @@ export function WorkflowGraph({ controller, structure, statuses: statusesProp, c
   };
 
   return (
-    <div ref={fit} className="ag-workflow-graph-fit">
+    <div
+      ref={fit}
+      className="ag-workflow-graph-fit"
+      data-camera={camera}
+      style={camera === 'fit' ? { aspectRatio: `${Math.max(layout.width, 1).toFixed(0)} / ${Math.max(layout.height, 1).toFixed(0)}` } : undefined}
+    >
       <svg
         ref={svgRef}
         className={cx('ag-workflow-graph', className)}
+        data-interactive={interactive ? undefined : 'false'}
         data-run={statuses.size > 0 ? 'active' : 'none'}
         viewBox={`0 0 ${Math.max(layout.width, 1).toFixed(1)} ${Math.max(layout.height, 1).toFixed(1)}`}
         role="img"
@@ -149,20 +195,22 @@ export function WorkflowGraph({ controller, structure, statuses: statusesProp, c
           })}
         </g>
       </svg>
-      <button
-        type="button"
-        className="ag-workflow-graph__fit"
-        onClick={() => {
-          followRef.current = true;
-          const at = activeNodeId ? layout.positions.get(activeNodeId) : undefined;
-          if (at) focusOn(at, focusZoomFor(layout));
-          else recenter();
-        }}
-        title="Recenter on the active step"
-        aria-label="Recenter on the active step"
-      >
-        <Icon icon={materialIcon('E28C')} />
-      </button>
+      {interactive && (
+        <button
+          type="button"
+          className="ag-workflow-graph__fit"
+          onClick={() => {
+            followRef.current = true;
+            const at = activeNodeId ? layout.positions.get(activeNodeId) : undefined;
+            if (at) focusOn(at, focusZoomFor(layout));
+            else recenter();
+          }}
+          title="Recenter on the active step"
+          aria-label="Recenter on the active step"
+        >
+          <Icon icon={materialIcon('E28C')} />
+        </button>
+      )}
     </div>
   );
 }
@@ -218,7 +266,7 @@ interface PanZoom {
    * transition so a hand drag/pinch stays instant while an auto-follow glide stays smooth. */
   smooth: boolean;
   /** Centers `point` in the viewport at zoom `k` (default: the current zoom), animated. */
-  focusOn: (point: Point, k?: number) => void;
+  focusOn: (point: Point, k?: number, animate?: boolean) => void;
   /** Back to showing the whole diagram at 1×, animated. */
   recenter: () => void;
 }
@@ -226,9 +274,9 @@ interface PanZoom {
 /** Pan and zoom of the graph — drag (mouse or one finger) to move, wheel or pinch to zoom around
  * the pointer/fingers; both cancel the current auto-follow (via `onUserInteract`) and render
  * instantly. `focusOn`/`recenter` instead animate — see `smooth`. */
-function usePanZoom(svgRef: RefObject<SVGSVGElement | null>, width: number, height: number, onUserInteract: () => void): PanZoom {
+function usePanZoom(svgRef: RefObject<SVGSVGElement | null>, width: number, height: number, onUserInteract: () => void, enabled: boolean, initial?: View): PanZoom {
   const FITTED: View = { k: 1, x: 0, y: 0 };
-  const [view, setView] = useState<View>(FITTED);
+  const [view, setView] = useState<View>(initial ?? FITTED);
   const [smooth, setSmooth] = useState(false);
 
   // A ref, not a dependency: `onUserInteract` is typically a fresh closure every render (as it
@@ -242,7 +290,7 @@ function usePanZoom(svgRef: RefObject<SVGSVGElement | null>, width: number, heig
 
   useEffect(() => {
     const svg = svgRef.current;
-    if (!svg) return;
+    if (!svg || !enabled) return;
     const pointers = new Map<number, Point>();
     let pinch: { dist: number; mid: Point } | null = null;
 
@@ -309,15 +357,12 @@ function usePanZoom(svgRef: RefObject<SVGSVGElement | null>, width: number, heig
       svg.removeEventListener('pointerup', onUp);
       svg.removeEventListener('pointercancel', onUp);
     };
-  }, [svgRef, width, height]);
+  }, [svgRef, width, height, enabled]);
 
   const focusOn = useCallback(
-    (point: Point, k?: number) => {
-      setSmooth(true);
-      setView((v) => {
-        const nk = k ?? v.k;
-        return { k: nk, x: width / 2 - point.x * nk, y: height / 2 - point.y * nk };
-      });
+    (point: Point, k?: number, animate = true) => {
+      setSmooth(animate);
+      setView((v) => viewOn(point, k ?? v.k, width, height));
     },
     [width, height]
   );
