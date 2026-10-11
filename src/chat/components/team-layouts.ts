@@ -281,6 +281,164 @@ export interface SceneGroup {
   points: Point[];
   /** Center of the badge. */
   label: Point;
+  /** The soft zone behind the group, clear of everything that is not its own. */
+  zone: ZoneShape;
+}
+
+/**
+ * The soft zone behind a group, whatever the layout: a disc on each of its members (`points`) and a band along each of
+ * `links`. It is `filled` (the area between its members too) only when nothing else of the drawing stands there.
+ */
+export interface ZoneShape {
+  points: Point[];
+  links: [Point, Point][];
+  filled: boolean;
+  /** Radius of the disc on each member; the band's half width when left out. */
+  radius?: number;
+  /**
+   * The free areas between neighbouring members (triangles), for a drawing that fills what it can between neighbours rather
+   * than all or nothing. Nothing that is not the group's stands in any of them.
+   */
+  areas?: Point[][];
+  /** The shortest clear bands that keep the members together, whether or not the zone is `filled`. */
+  ties?: [Point, Point][];
+}
+
+/** Half the width of a zone's band: the room a member's hexagon takes, and a little air. */
+export const ZONE_HALF_WIDTH = 23;
+
+/**
+ * The room something takes in the drawing. `margin` is how far a zone's band must stay from it: the band's half width by
+ * default (a shape the band must not touch at all, like a member's hexagon), less for something a band may brush past
+ * (a name).
+ */
+export interface Obstacle {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+  margin?: number;
+}
+
+/** Whether the segment `a`–`b` crosses `box` (or lies in it). */
+function segmentHitsBox(a: Point, b: Point, box: Obstacle): boolean {
+  // Liang–Barsky: the part of the segment inside the box, if any.
+  let t0 = 0;
+  let t1 = 1;
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const clip = (p: number, q: number): boolean => {
+    if (p === 0) return q >= 0;
+    const r = q / p;
+    if (p < 0) {
+      if (r > t1) return false;
+      if (r > t0) t0 = r;
+    } else {
+      if (r < t0) return false;
+      if (r < t1) t1 = r;
+    }
+    return true;
+  };
+  return clip(-dx, a.x - box.left) && clip(dx, box.right - a.x) && clip(-dy, a.y - box.top) && clip(dy, box.bottom - a.y);
+}
+
+function inPolygon(p: Point, polygon: Point[]): boolean {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const a = polygon[i]!;
+    const b = polygon[j]!;
+    if (a.y > p.y !== b.y > p.y && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x) inside = !inside;
+  }
+  return inside;
+}
+
+/**
+ * The zone of a group whose members sit at `points`, in a drawing where `obstacles` are the room taken by everything that is
+ * not this group: the other members (names included), a manager, a start or a center point.
+ *
+ * One rule for every layout: a zone never passes over what is not its own. When the area between the members is free, the
+ * zone is that whole area. When something stands in it (a group that goes round a manager, round a shared conversation, or
+ * whose members are apart in a chain), the zone is only the bands that join its members without crossing anything — the
+ * shortest ones that keep them together — and a member that cannot be joined keeps its own disc.
+ */
+export function zoneShape(points: Point[], obstacles: Obstacle[], halfWidth = ZONE_HALF_WIDTH): ZoneShape {
+  const grown = obstacles.map((o) => {
+    const m = o.margin ?? halfWidth;
+    return { left: o.left - m, top: o.top - m, right: o.right + m, bottom: o.bottom + m };
+  });
+  const clear = (a: Point, b: Point) => !grown.some((o) => segmentHitsBox(a, b, o));
+
+  const outline = points.map((p, i): [Point, Point] => [p, points[(i + 1) % points.length]!]);
+  const filled = points.length >= 3 && outline.every(([a, b]) => clear(a, b)) && !obstacles.some((o) => inPolygon({ x: (o.left + o.right) / 2, y: (o.top + o.bottom) / 2 }, points));
+
+  // The shortest clear bands that keep the members together (a spanning forest: Kruskal over the clear pairs).
+  const pairs: [number, number, number][] = [];
+  for (let i = 0; i < points.length; i++) {
+    for (let j = i + 1; j < points.length; j++) {
+      const a = points[i]!;
+      const b = points[j]!;
+      if (clear(a, b)) pairs.push([i, j, Math.hypot(a.x - b.x, a.y - b.y)]);
+    }
+  }
+  pairs.sort((x, y) => x[2] - y[2]);
+  const parent = points.map((_, i) => i);
+  const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i]!)));
+  const links: [Point, Point][] = [];
+  for (const [i, j] of pairs) {
+    const a = find(i);
+    const b = find(j);
+    if (a === b) continue;
+    parent[a] = b;
+    links.push([points[i]!, points[j]!]);
+  }
+
+  // The free areas between neighbours: every triangle of members whose sides are clear, that holds nothing foreign, and
+  // whose sides are not much longer than the bands that tie the group (so the zone grows between neighbours and never
+  // closes itself round what it avoids).
+  const reach = 1.5 * Math.max(0, ...links.map(([a, b]) => Math.hypot(a.x - b.x, a.y - b.y)));
+  const side = new Set(pairs.filter((p) => p[2] <= reach).map(([i, j]) => `${i}-${j}`));
+  const centers = obstacles.map((o) => ({ x: (o.left + o.right) / 2, y: (o.top + o.bottom) / 2 }));
+  const areas: Point[][] = [];
+  for (let i = 0; i < points.length; i++) {
+    for (let j = i + 1; j < points.length; j++) {
+      if (!side.has(`${i}-${j}`)) continue;
+      for (let k = j + 1; k < points.length; k++) {
+        if (!side.has(`${i}-${k}`) || !side.has(`${j}-${k}`)) continue;
+        const triangle = [points[i]!, points[j]!, points[k]!];
+        if (!centers.some((c) => inPolygon(c, triangle))) areas.push(triangle);
+      }
+    }
+  }
+  return filled ? { points, links: outline, filled, areas, ties: links } : { points, links, filled, areas, ties: links };
+}
+
+/**
+ * Where the badge of the hub's own group goes when no other member shares that group: beside the hub, on the side farthest
+ * from the groups around it (their directions from the center, in radians). `width` is the badge's.
+ */
+export function hubBadgeCenter(center: Point, hubRadius: number, width: number, branchAngles: number[]): Point {
+  const sides: { angle: number; at: Point }[] = [
+    { angle: -Math.PI / 2, at: { x: center.x, y: center.y - hubRadius - 18 } },
+    // Below the hub its name comes first.
+    { angle: Math.PI / 2, at: { x: center.x, y: center.y + hubRadius + 32 } },
+    { angle: Math.PI, at: { x: center.x - hubRadius - 10 - width / 2, y: center.y } },
+    { angle: 0, at: { x: center.x + hubRadius + 10 + width / 2, y: center.y } },
+  ];
+  const apart = (a: number, b: number) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
+  const room = (angle: number) => (branchAngles.length === 0 ? Math.PI : Math.min(...branchAngles.map((b) => apart(angle, b))));
+  return sides.reduce((best, side) => (room(side.angle) > room(best.angle) + 1e-6 ? side : best)).at;
+}
+
+/**
+ * The room a member takes in the drawing: its hexagon, which a band of another group never touches, and its name (below
+ * it, or above), which a band stays just clear of.
+ */
+export function memberObstacles(at: Point, labelAbove = false, radius = 13): Obstacle[] {
+  const nameTop = labelAbove ? at.y - radius - 17 : at.y + radius + 4;
+  return [
+    { left: at.x - radius, right: at.x + radius, top: at.y - radius, bottom: at.y + radius },
+    { left: at.x - 26, right: at.x + 26, top: nameTop, bottom: nameTop + 12, margin: 5 },
+  ];
 }
 
 const PILL_HEIGHT = 16;
@@ -346,7 +504,8 @@ export function groupsFor(scene: TeamScene, groupOf: (id: string) => { key: stri
     // Nothing free (a crowded frame): over the group's first member, kept in the frame.
     const label = best ?? clampToFrame({ x: points[0]!.x - 16 + w / 2, y: points[0]!.y - 33 }, w, frame);
     taken.push(boxAt(label));
-    result.push({ key, name, ids: placed.map((m) => m.id), points, label });
+    const others: Obstacle[] = [...scene.members.filter((m) => !placed.includes(m)).flatMap((m) => memberObstacles(m.at, m.labelAbove)), ...scene.dots.map((d) => ({ left: d.at.x - 10, right: d.at.x + 10, top: d.at.y - 10, bottom: d.at.y + 10 }))];
+    result.push({ key, name, ids: placed.map((m) => m.id), points, label, zone: zoneShape(points, others) });
   }
   return result;
 }

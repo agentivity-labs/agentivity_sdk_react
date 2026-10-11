@@ -124,6 +124,8 @@ export type { ChatRunErrorProps } from './chat/components/ChatRunError.js';
 export type { AgUiRunError } from './chat/chat-controller.js';
 export { ChatActiveMemberIndicator } from './chat/components/ChatActiveMemberIndicator.js';
 export type { ChatActiveMemberIndicatorProps } from './chat/components/ChatActiveMemberIndicator.js';
+export { ChatActivityIndicator, chatActivityLabel } from './chat/components/ChatActivityIndicator.js';
+export type { ChatActivity, ChatActivityAnimation, ChatActivityIndicatorProps, ChatActivityStyle } from './chat/components/ChatActivityIndicator.js';
 export { MemberAvatar, resolveMemberAvatar } from './chat/components/member-avatar.js';
 export type { AgUiChatMember, AgUiMemberAvatar } from './chat/components/member-avatar.js';
 export { TeamRoster } from './chat/components/TeamRoster.js';
@@ -142,7 +144,7 @@ export { parseWorkflowGraph } from './client/domain/workflow-graph-models.js';
 
 // Graphs of anything the platform describes (a Template, a team, a workflow, an agent), from the JSON alone — no run needed.
 export { TemplateGraph, workflowWalk } from './graph/TemplateGraph.js';
-export type { TemplateGraphProps } from './graph/TemplateGraph.js';
+export type { GraphSelection, TemplateGraphProps } from './graph/TemplateGraph.js';
 export { resolveRenderable, tryResolveRenderable, RenderableError } from './graph/renderable.js';
 export type { Renderable, RenderableEntity, RenderableKind } from './graph/renderable.js';
 export type { WorkflowGraphStructure, WorkflowGraphNode, WorkflowGraphEdge, WorkflowNodeKind } from './client/domain/workflow-graph-models.js';

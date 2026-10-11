@@ -33,7 +33,24 @@ export interface TemplateGraphProps {
    * then a viewer of its own (the height of its host, or 16:9). No effect on a team.
    */
   camera?: 'follow' | 'fit';
+  /**
+   * Called when a member of a team or a node of a workflow is clicked, tapped, or chosen with the keyboard. With it, the graph's
+   * elements show a pointer and can be selected; without it the graph is a picture.
+   */
+  onSelect?: (selection: GraphSelection) => void;
+  /** The element shown as selected: a member's `memberEntityId` or a node's id. The app owns the selection. */
+  selectedId?: string;
+  /** How the zone behind a group of a team is drawn (see `TeamGraph`). No effect on a workflow. */
+  zoneLook?: TeamGraphProps['zoneLook'];
   className?: string;
+}
+
+/** What was selected in a `TemplateGraph`: a member of a team, or a node of a workflow (or of the graph inside an agent). */
+export interface GraphSelection {
+  kind: 'member' | 'node';
+  /** A member's `memberEntityId`, or a node's id. */
+  id: string;
+  displayName: string;
 }
 
 /** A team ready for `TeamGraph`: its members named from what the Template (or the marketplace) says about them. */
@@ -97,20 +114,20 @@ function usePlayback<S extends 'working' | 'done'>(ids: readonly string[], enabl
   }, [active, step, key]);
 }
 
-function TeamView({ renderable, resolveMemberAvatar, autoplay, stepMs, interactive, className }: { renderable: Renderable } & Omit<TemplateGraphProps, 'source'>) {
+function TeamView({ renderable, resolveMemberAvatar, autoplay, stepMs, interactive, onSelect, selectedId, zoneLook, className }: { renderable: Renderable } & Omit<TemplateGraphProps, 'source'>) {
   const { members, hubMemberId, topology } = useMemo(() => teamMembersOf(renderable), [renderable]);
   const playing = usePlayback<Extract<TeamMemberStatus, 'working' | 'done'>>(
     members.map((m) => m.memberEntityId),
     !!autoplay,
     stepMs ?? 1400,
   );
-  return <TeamGraph members={members} hubMemberId={hubMemberId} topology={topology} resolveMemberAvatar={resolveMemberAvatar} restingColors={!playing} statuses={playing} interactive={interactive} className={className} />;
+  return <TeamGraph members={members} hubMemberId={hubMemberId} topology={topology} resolveMemberAvatar={resolveMemberAvatar} restingColors={!playing} statuses={playing} interactive={interactive} zoneLook={zoneLook} selectedMemberId={selectedId} onMemberSelect={onSelect ? (m) => onSelect({ kind: 'member', id: m.memberEntityId, displayName: m.displayName }) : undefined} className={className} />;
 }
 
-function WorkflowView({ structure, autoplay, stepMs, interactive, camera, className }: { structure: WorkflowGraphStructure } & Omit<TemplateGraphProps, 'source' | 'resolveMemberAvatar'>) {
+function WorkflowView({ structure, autoplay, stepMs, interactive, camera, onSelect, selectedId, className }: { structure: WorkflowGraphStructure } & Omit<TemplateGraphProps, 'source' | 'resolveMemberAvatar'>) {
   const walk = useMemo(() => workflowWalk(structure), [structure]);
   const playing = usePlayback<Extract<WorkflowStepStatus, 'working' | 'done'>>(walk, !!autoplay, stepMs ?? 1100);
-  return <WorkflowGraph structure={structure} statuses={playing} camera={camera ?? 'fit'} interactive={interactive} className={className} />;
+  return <WorkflowGraph structure={structure} statuses={playing} camera={camera ?? 'fit'} interactive={interactive} selectedNodeId={selectedId} onNodeSelect={onSelect ? (n) => onSelect({ kind: 'node', id: n.id, displayName: n.displayName }) : undefined} className={className} />;
 }
 
 /**
@@ -118,7 +135,7 @@ function WorkflowView({ structure, autoplay, stepMs, interactive, camera, classN
  * agent) as its flow. It needs no run and no chat — it is the picture for a catalog, a preview or a documentation page.
  * An unreadable source draws a short message instead of throwing.
  */
-export function TemplateGraph({ source, resolveMemberAvatar, autoplay, stepMs, interactive = false, camera = 'fit', className }: TemplateGraphProps) {
+export function TemplateGraph({ source, resolveMemberAvatar, autoplay, stepMs, interactive = false, camera = 'fit', onSelect, selectedId, zoneLook, className }: TemplateGraphProps) {
   const resolved = useMemo(() => {
     try {
       return { renderable: resolveRenderable(source) };
@@ -142,7 +159,7 @@ export function TemplateGraph({ source, resolveMemberAvatar, autoplay, stepMs, i
     );
   }
   if (resolved.renderable.kind === 'team') {
-    return <TeamView renderable={resolved.renderable} resolveMemberAvatar={resolveMemberAvatar} autoplay={autoplay} stepMs={stepMs} interactive={interactive} className={className} />;
+    return <TeamView renderable={resolved.renderable} resolveMemberAvatar={resolveMemberAvatar} autoplay={autoplay} stepMs={stepMs} interactive={interactive} onSelect={onSelect} selectedId={selectedId} zoneLook={zoneLook} className={className} />;
   }
   if (!structure || structure.nodes.length === 0) {
     return (
@@ -151,5 +168,5 @@ export function TemplateGraph({ source, resolveMemberAvatar, autoplay, stepMs, i
       </div>
     );
   }
-  return <WorkflowView structure={structure} autoplay={autoplay} stepMs={stepMs} interactive={interactive} camera={camera} className={className} />;
+  return <WorkflowView structure={structure} autoplay={autoplay} stepMs={stepMs} interactive={interactive} camera={camera} onSelect={onSelect} selectedId={selectedId} className={className} />;
 }

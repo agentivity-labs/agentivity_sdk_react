@@ -111,7 +111,9 @@ describe('TemplateGraph — camera on a workflow', () => {
     };
     const withFit = render(<TemplateGraph source={team} />);
     const withFollow = render(<TemplateGraph source={team} camera="follow" />);
-    expect(withFollow.container.innerHTML).toBe(withFit.container.innerHTML);
+    // Each graph names its own zone filter: the same drawing, but for that name.
+    const drawing = (html: string) => html.replace(/ag-zone-melt-\w+/g, 'ag-zone-melt');
+    expect(drawing(withFollow.container.innerHTML)).toBe(drawing(withFit.container.innerHTML));
     expect(withFollow.container.querySelector('.ag-workflow-graph-fit')).toBeNull();
   });
 });

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import type { ChatController, WorkflowStepStatus } from '../chat-controller.js';
 import type { WorkflowGraphNode, WorkflowGraphStructure, WorkflowNodeKind } from '../../client/domain/workflow-graph-models.js';
 import { edgeKey, flowCurve, layoutWorkflowGraph, loopCurve, type Point } from './workflow-graph-layout.js';
+import { usePick } from './use-pick.js';
 import { Icon } from '../../icons/Icon.js';
 import { materialIcon } from '../../icons/icon-ref.js';
 
@@ -35,6 +36,13 @@ export interface WorkflowGraphProps {
    * (a catalog, a documentation page): the wheel then scrolls the page instead of zooming the drawing.
    */
   interactive?: boolean;
+  /**
+   * Called when a node is clicked, tapped, or chosen with the keyboard. With it, nodes show a pointer and can be selected;
+   * without it the diagram is a picture. Dragging the diagram is not a selection.
+   */
+  onNodeSelect?: (node: WorkflowGraphNode) => void;
+  /** The id of the node shown as selected (a ring and its name in the accent color). The app owns the selection. */
+  selectedNodeId?: string;
   className?: string;
 }
 
@@ -99,7 +107,11 @@ const NO_STEP_STATUSES: ReadonlyMap<string, WorkflowStepStatus> = new Map();
  * "Recenter" button hands control back. Optional and independent of `ChatDiscussion`. Structural
  * markup with `ag-workflow-graph*` classes (default look in `styles.css`).
  */
-export function WorkflowGraph({ controller, structure, statuses: statusesProp, camera = 'follow', interactive = true, className }: WorkflowGraphProps) {
+export function WorkflowGraph({ controller, structure, statuses: statusesProp, camera = 'follow', interactive = true, onNodeSelect, selectedNodeId, className }: WorkflowGraphProps) {
+  const pick = usePick(onNodeSelect ? (id) => {
+    const picked = structure.nodes.find((n) => n.id === id);
+    if (picked) onNodeSelect(picked);
+  } : undefined);
   const streamStatuses = useSyncExternalStore(controller?.subscribe ?? noSubscribe, () => controller?.stepStatuses ?? NO_STEP_STATUSES);
   const statuses = statusesProp ?? streamStatuses;
   const fit = useRef<HTMLDivElement>(null);
@@ -141,7 +153,7 @@ export function WorkflowGraph({ controller, structure, statuses: statusesProp, c
       <g key={n.id} transform={`translate(${at.x} ${at.y})`}>
         {/* Solid backing: the node dims as a whole once a run starts, but the links running under it must never show through. */}
         <circle className="ag-workflow-graph__backing" r={NODE_RADIUS} />
-        <g className="ag-workflow-graph__node" data-kind={n.kind} data-status={status}>
+        <g className="ag-workflow-graph__node" data-kind={n.kind} data-status={status} data-selectable={onNodeSelect ? 'true' : undefined} data-selected={selectedNodeId === n.id ? 'true' : undefined} aria-pressed={onNodeSelect ? selectedNodeId === n.id : undefined} {...pick.target(n.id)}>
           <title>{`${n.displayName} — ${statusText(status)}`}</title>
           <circle className="ag-workflow-graph__circle" r={NODE_RADIUS} />
           <Icon icon={materialIcon(KIND_ICON[n.kind])} x={-NODE_RADIUS * 0.55} y={-NODE_RADIUS * 0.55} size={NODE_RADIUS * 1.1} className="ag-workflow-graph__glyph" />
@@ -167,7 +179,8 @@ export function WorkflowGraph({ controller, structure, statuses: statusesProp, c
         data-interactive={interactive ? undefined : 'false'}
         data-run={statuses.size > 0 ? 'active' : 'none'}
         viewBox={`0 0 ${Math.max(layout.width, 1).toFixed(1)} ${Math.max(layout.height, 1).toFixed(1)}`}
-        role="img"
+        {...pick.root}
+        role={onNodeSelect ? 'group' : 'img'}
         aria-label="Workflow"
       >
         <g

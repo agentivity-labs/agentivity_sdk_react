@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from 'react';
 import type { ChatController, TeamMemberStatus } from '../chat-controller.js';
 import { resolveMemberAvatar as resolveAvatar, type AgUiChatMember, type AgUiMemberAvatar } from './member-avatar.js';
 import { Icon } from '../../icons/Icon.js';
 import { materialIcon } from '../../icons/icon-ref.js';
 import { groupColorOverrides, orderByGroup, teamGroupColors, teamGroupKey } from './team-groups.js';
 import { memberAvatarFor, teamMemberShortName, teamMemberStatusText, type AgUiTeamMember, type AgUiTeamTopology } from './team-member.js';
-import { groupsFor, pillWidth, sceneFor, shorten, type SceneEdge, type SceneGroup, type TeamScene } from './team-layouts.js';
+import { usePick } from './use-pick.js';
+import { groupsFor, hubBadgeCenter, memberObstacles, pillWidth, sceneFor, shorten, zoneShape, type SceneEdge, type SceneGroup, type TeamScene, type ZoneShape } from './team-layouts.js';
 
 export interface TeamGraphProps {
   /**
@@ -40,6 +41,19 @@ export interface TeamGraphProps {
    * (a catalog, a documentation page): the wheel then scrolls the page instead of zooming the drawing.
    */
   interactive?: boolean;
+  /**
+   * How the zone behind a group is drawn. `organic` (the default): the free areas between neighbours, a disc on each member
+   * and the bands that tie them, all melted into one soft shape with rounded hollows. `bands`: plain discs and straight
+   * bands, cheaper to draw. Either way a zone never passes over what is not its own.
+   */
+  zoneLook?: 'bands' | 'organic';
+  /**
+   * Called when a member is clicked, tapped, or chosen with the keyboard. With it, members show a pointer and can be selected;
+   * without it the graph is a picture. Dragging the graph is not a selection.
+   */
+  onMemberSelect?: (member: AgUiTeamMember) => void;
+  /** The `memberEntityId` of the member shown as selected (a ring and its name in the accent color). The app owns the selection. */
+  selectedMemberId?: string;
   className?: string;
 }
 
@@ -199,7 +213,13 @@ const NO_MEMBER_STATUSES: ReadonlyMap<string, TeamMemberStatus> = new Map();
  * link). Driven by {@link ChatController.memberStatuses}; optional and independent of `ChatDiscussion`. Structural markup
  * with `ag-team-graph*` classes (default look in `styles.css`).
  */
-export function TeamGraph({ controller, members, hubMemberId, topology: topologyProp, resolveMemberAvatar, restingColors, statuses: statusesProp, interactive = true, className }: TeamGraphProps) {
+export function TeamGraph({ controller, members, hubMemberId, topology: topologyProp, resolveMemberAvatar, restingColors, statuses: statusesProp, interactive = true, zoneLook = 'organic', onMemberSelect, selectedMemberId, className }: TeamGraphProps) {
+  const meltId = `ag-zone-melt-${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
+  const melt = zoneLook === 'organic' ? meltId : undefined;
+  const pick = usePick(onMemberSelect ? (id) => {
+    const member = members.find((m) => m.memberEntityId === id);
+    if (member) onMemberSelect(member);
+  } : undefined);
   const streamStatuses = useSyncExternalStore(controller?.subscribe ?? noSubscribe, () => controller?.memberStatuses ?? NO_MEMBER_STATUSES);
   const statuses = statusesProp ?? streamStatuses;
   // The graph fills the box it is given: it measures it and lays the ring out to fit.
@@ -230,6 +250,7 @@ export function TeamGraph({ controller, members, hubMemberId, topology: topology
     return { hub: hubMember, branches: layout(others, frame) };
   }, [members, hubMemberId, frame]);
 
+  const hubGroupKey = hub ? teamGroupKey(hub.group) : undefined;
   const colorOf = (member: AgUiTeamMember) => groupColors.get(teamGroupKey(member.group) ?? '');
 
   // Every topology but the manager-led one has its own layout; the manager-led one (and a team of unknown shape) keeps the constellation.
@@ -290,7 +311,7 @@ export function TeamGraph({ controller, members, hubMemberId, topology: topology
       <g key={member.memberEntityId} transform={`translate(${at.x} ${at.y})`}>
         {/* Solid backing: the node dims as a whole once a run starts, but the links running under it must never show through. */}
         <polygon className="ag-team-graph__backing" points={hexPoints(hexRadius)} />
-        <g className="ag-team-graph__node" data-status={status ?? 'idle'}>
+        <g className="ag-team-graph__node" data-status={status ?? 'idle'} data-selectable={onMemberSelect ? 'true' : undefined} data-selected={selectedMemberId === member.memberEntityId ? 'true' : undefined} aria-pressed={onMemberSelect ? selectedMemberId === member.memberEntityId : undefined} {...pick.target(member.memberEntityId)}>
         <title>{`${member.displayName} — ${teamMemberStatusText(status)}`}</title>
         {avatar.imageUrl ? (
           <>
@@ -358,7 +379,7 @@ export function TeamGraph({ controller, members, hubMemberId, topology: topology
   // Every group is drawn as in the constellation: a soft zone behind its members, in the group's color, and a badge with its name.
   const groupZones = sceneGroups.map((group) => (
     <g key={`zone-${group.key}`} style={{ color: groupColors.get(baseKey(group.key)) }}>
-      <GroupZone points={group.points} />
+      <GroupZone zone={group.zone} organic={melt} />
     </g>
   ));
   const groupBadges = sceneGroups.map((group) => (
@@ -398,21 +419,40 @@ export function TeamGraph({ controller, members, hubMemberId, topology: topology
 
   return (
     <div ref={fit} className="ag-team-graph-fit">
-    <svg ref={svgRef} className={cx('ag-team-graph', className)} data-interactive={interactive ? undefined : 'false'} data-topology={scene ? topology?.kind : 'constellation'} data-run={statuses.size > 0 ? 'active' : 'none'} data-resting={restingColors ? 'true' : undefined} viewBox={`0 0 ${frame.width.toFixed(1)} ${frame.height.toFixed(1)}`} role="img" aria-label="Team">
+    <svg ref={svgRef} className={cx('ag-team-graph', className)} data-interactive={interactive ? undefined : 'false'} data-topology={scene ? topology?.kind : 'constellation'} data-run={statuses.size > 0 ? 'active' : 'none'} data-resting={restingColors ? 'true' : undefined} viewBox={`0 0 ${frame.width.toFixed(1)} ${frame.height.toFixed(1)}`} role={onMemberSelect ? 'group' : 'img'} aria-label="Team" {...pick.root}>
+      {melt && <ZoneMelt id={melt} frame={frame} />}
       <g className="ag-team-graph__viewport" transform={`translate(${view.x.toFixed(2)} ${view.y.toFixed(2)}) scale(${view.k.toFixed(4)})`}>
       {scene ? sceneBody(scene) : <>
+      {/* The hub belongs to a group like anyone else. Alone in it, it gets its own zone and badge; otherwise it joins the branch of that group. */}
+      {hub && hubGroupKey && !branches.some((b) => b.key === hubGroupKey) && (
+        <g className="ag-team-graph__branch" style={{ color: groupColors.get(hubGroupKey) }}>
+          <GroupZone zone={{ ...zoneShape([frame.center], []), radius: HUB_RADIUS + 13 }} organic={melt} />
+          <GroupPill name={hub.group!.trim()} count={1} center={hubBadgeCenter(frame.center, HUB_RADIUS, pillWidth(hub.group!.trim()), branches.map((b) => b.angle))} />
+        </g>
+      )}
       {branches.map((branch, b) => {
         const color = branch.key ? groupColors.get(branch.key) : undefined;
+        const withHub = !!hub && branch.key === hubGroupKey;
         return (
           <g key={`branch-${b}`} className="ag-team-graph__branch" style={color ? { color } : undefined}>
-            {branch.key && <GroupZone points={branch.members.map((p) => p.at)} />}
+            {branch.key && (
+              <GroupZone
+                organic={melt}
+                zone={zoneShape(
+                  // A hub of this group is one of its points.
+                  withHub ? [frame.center, ...branch.members.map((p) => p.at)] : branch.members.map((p) => p.at),
+                  // Everything that is not this group: the members of the other branches, and the hub with its name.
+                  [...branches.filter((other) => other !== branch).flatMap((other) => other.members.flatMap((p) => memberObstacles(p.at))), ...(hub && !withHub ? memberObstacles(frame.center, false, HUB_RADIUS) : [])],
+                )}
+              />
+            )}
             {hub && branch.junction && <path className="ag-team-graph__edge ag-team-graph__edge--trunk" data-status={litStatus(branch)} d={curve(frame.center, branch.junction, 0.14)} />}
             {(hub || branch.junction) &&
               branch.members.map(({ member, at, from, bend }) => (
               <path key={`edge-${member.memberEntityId}`} className="ag-team-graph__edge" data-status={statuses.get(member.memberEntityId) ?? 'idle'} d={curve(from, at, bend)} />
               ))}
             {branch.junction && <circle className="ag-team-graph__junction" data-status={litStatus(branch)} cx={branch.junction.x} cy={branch.junction.y} r={2.6} />}
-            {branch.junction && branch.name && <GroupLabel branch={branch} />}
+            {branch.junction && branch.name && <GroupLabel branch={branch} count={branch.members.length + (withHub ? 1 : 0)} />}
           </g>
         );
       })}
@@ -528,30 +568,64 @@ function usePanZoom(svgRef: RefObject<SVGSVGElement | null>, enabled: boolean): 
   return [view, () => setView(FITTED)];
 }
 
-/** The soft zone behind a group's members: their positions, thickened into one rounded shape in the group's color. */
-function GroupZone({ points }: { points: Point[] }) {
-  const list = points.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
-  const only = points[0]!;
+/**
+ * The soft zone behind a group, in the group's color: a disc on each member, a band along each link, and the area between
+ * the members when it is free. One shape, faded as a whole (the group's opacity): bands that cross do not darken each other.
+ */
+function GroupZone({ zone, organic }: { zone: ZoneShape; organic?: string }) {
+  const at = (p: Point) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`;
   return (
-    <g className="ag-team-graph__zone" aria-hidden="true">
-      {points.length === 1 ? (
-        <line x1={only.x} y1={only.y} x2={only.x + 0.01} y2={only.y} />
-      ) : points.length === 2 ? (
-        <polyline points={list} />
+    <g className="ag-team-graph__zone" data-filled={zone.filled ? 'true' : 'false'} data-look={organic ? 'organic' : undefined} filter={organic ? `url(#${organic})` : undefined} aria-hidden="true">
+      {organic ? (
+        <>
+          {/* An organic zone fills what is free between neighbours, ties its members with the shortest clear bands, and lets the melt round it all. */}
+          {zone.areas?.map((area, i) => <polygon key={`a${i}`} points={area.map(at).join(' ')} />)}
+          {zone.points.map((p, i) => (
+            <line key={`p${i}`} x1={p.x} y1={p.y} x2={p.x + 0.01} y2={p.y} style={zone.radius ? { strokeWidth: zone.radius * 2 } : undefined} />
+          ))}
+          {(zone.ties ?? zone.links).map(([a, b], i) => (
+            <line key={`l${i}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y} />
+          ))}
+        </>
+      ) : zone.filled ? (
+        <polygon points={zone.points.map(at).join(' ')} />
       ) : (
-        <polygon points={list} />
+        <>
+          {/* A line of no length with round caps is a disc. */}
+          {zone.points.map((p, i) => (
+            <line key={`p${i}`} x1={p.x} y1={p.y} x2={p.x + 0.01} y2={p.y} style={zone.radius ? { strokeWidth: zone.radius * 2 } : undefined} />
+          ))}
+          {zone.links.map(([a, b], i) => (
+            <line key={`l${i}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y} />
+          ))}
+        </>
       )}
     </g>
   );
 }
 
+/**
+ * Melts the parts of a zone into one soft shape: blurred, then cut back to a clean edge, so corners round off and the hollow
+ * between two bands fills in like a drop. The region is the whole drawing, because a zone can be a single line (no height).
+ */
+function ZoneMelt({ id, frame }: { id: string; frame: Frame }) {
+  return (
+    <defs>
+      <filter id={id} filterUnits="userSpaceOnUse" x={-200} y={-200} width={frame.width + 400} height={frame.height + 400} colorInterpolationFilters="sRGB">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="9" result="soft" />
+        <feColorMatrix in="soft" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -10" />
+      </filter>
+    </defs>
+  );
+}
+
 /** The group's badge — a pill with its color, its name in capitals and its size — set beside its junction, clear of the links. */
-function GroupLabel({ branch }: { branch: Branch }) {
+function GroupLabel({ branch, count }: { branch: Branch; count: number }) {
   const j = branch.junction!;
   const width = pillWidth(branch.name!);
   const px = -Math.sin(branch.angle);
   const py = Math.cos(branch.angle);
-  return <GroupPill name={branch.name!} count={branch.members.length} center={{ x: j.x + px * (width / 2 + 6), y: j.y + py * 13 }} />;
+  return <GroupPill name={branch.name!} count={count} center={{ x: j.x + px * (width / 2 + 6), y: j.y + py * 13 }} />;
 }
 
 /** A group's name badge — a pill in the group's color: a dot, the name in capitals and the member count — centered on `center`. */

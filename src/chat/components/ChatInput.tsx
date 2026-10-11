@@ -5,6 +5,8 @@ export interface ChatInputProps {
   onSend: (text: string, attachments: File[]) => void;
   /** Placeholder shown in normal mode. */
   hint?: string;
+  /** Text the input starts with. Read once, when the input is first shown. */
+  initialText?: string;
   /** Placeholder shown when `isHil` is true. */
   hilHint?: string;
   minRows?: number;
@@ -53,6 +55,7 @@ export interface ChatInputProps {
 export function ChatInput({
   onSend,
   hint = 'Type a message…',
+  initialText,
   hilHint = 'Type your response…',
   minRows = 1,
   maxRows = 6,
@@ -68,7 +71,7 @@ export function ChatInput({
   acceptedExtensions,
   className,
 }: ChatInputProps) {
-  const [text, setText] = useState('');
+  const [text, setText] = useState(initialText ?? '');
   const [attachments, setAttachments] = useState<File[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);

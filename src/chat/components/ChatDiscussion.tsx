@@ -5,6 +5,7 @@ import { isDisplayWidget, type AgUiWidgetRegistry } from '../../artifacts/widget
 import { ChatMessageBubble } from './ChatMessageBubble.js';
 import { ChatInput } from './ChatInput.js';
 import { ChatActiveMemberIndicator } from './ChatActiveMemberIndicator.js';
+import { ChatActivityIndicator, type ChatActivity, type ChatActivityStyle } from './ChatActivityIndicator.js';
 import { ChatRunError } from './ChatRunError.js';
 import { ChatConnectionNotice } from './ChatConnectionNotice.js';
 import { useOptionalAgentivityClient } from '../../react/AgentivityProvider.js';
@@ -42,6 +43,23 @@ export interface ChatDiscussionProps {
    */
   showActiveMemberIndicator?: boolean;
   /**
+   * Shows a discreet "it is working" line (a small moving mark and a short text) above the input for as long as a run is
+   * in progress, and removes it the moment the run ends, fails, is stopped or asks something. Off by default. It follows the
+   * same signal as the stop button (`running` or `controller.isAwaitingResponse`) and appears only after
+   * `activityStyle.delayMs`, so a quick answer shows none. While a Team member is shown by
+   * {@link showActiveMemberIndicator}, that indicator stands in its place.
+   */
+  showActivityIndicator?: boolean;
+  /**
+   * What the app says is going on ("Reading your files"), shown instead of the default text. Left out, the default applies:
+   * the member at work when there is one, otherwise `activityStyle.thinkingLabel`.
+   */
+  activityLabel?: string;
+  /** The look of the activity indicator: animation, mark, colour, delay, wording. */
+  activityStyle?: ChatActivityStyle;
+  /** Draws the activity indicator instead of the default one. */
+  renderActivity?: (activity: ChatActivity) => ReactNode;
+  /**
    * Shows an avatar+name header above each assistant bubble, identifying which Team
    * member sent it. Off by default; has no effect for a standalone Agent's messages
    * (they carry no author identity).
@@ -57,6 +75,11 @@ export interface ChatDiscussionProps {
   emptyBuilder?: () => ReactNode;
   inputHint?: string;
   hilInputHint?: string;
+  /**
+   * Text put in the input when the chat opens, for the person to send as it is or to complete (a request the app prepared
+   * from what they were looking at). Read once: changing it later does not overwrite what they typed.
+   */
+  initialInputText?: string;
   enableVoice?: boolean;
   onTranscribeAudio?: (audio: Blob, mimeType: string) => Promise<string | undefined>;
   enableAttachments?: boolean;
@@ -82,12 +105,17 @@ export function ChatDiscussion({
   onStop,
   running: runningProp,
   showActiveMemberIndicator = false,
+  showActivityIndicator = false,
+  activityLabel,
+  activityStyle,
+  renderActivity,
   showSpeakerLabels = false,
   resolveMemberAvatar,
   messageBuilder,
   emptyBuilder,
   inputHint = 'Type a message…',
   hilInputHint = 'Type your response…',
+  initialInputText,
   enableVoice = true,
   onTranscribeAudio,
   enableAttachments = true,
@@ -97,6 +125,7 @@ export function ChatDiscussion({
   const threads = useSyncExternalStore(controller.subscribe, () => controller.threads);
   const pendingHilGate = useSyncExternalStore(controller.subscribe, () => controller.pendingHilGate);
   const activeMember = useSyncExternalStore(controller.subscribe, () => controller.activeMember);
+  const currentStep = useSyncExternalStore(controller.subscribe, () => controller.currentStep);
   const runError = useSyncExternalStore(controller.subscribe, () => controller.runError);
   // Inside an AgentivityProvider the conversation says on its own when the server cannot be reached.
   const client = useOptionalAgentivityClient();
@@ -193,13 +222,31 @@ export function ChatDiscussion({
 
       {runError && <ChatRunError error={runError} onDismiss={() => controller.dismissRunError()} />}
 
-      {showActiveMemberIndicator && activeMember && <ChatActiveMemberIndicator member={activeMember} resolveMemberAvatar={resolveMemberAvatar} />}
+      {showActiveMemberIndicator && activeMember ? (
+        <ChatActiveMemberIndicator member={activeMember} resolveMemberAvatar={resolveMemberAvatar} />
+      ) : (
+        showActivityIndicator && (
+          // Always mounted while the option is on, so that it keeps its own delay; it renders nothing when idle.
+          <ChatActivityIndicator
+            // Busy is what the stop button goes by. A question waiting for its answer is not work in progress; one whose
+            // answer is on its way is.
+            activity={
+              (runningProp === true || awaiting) && (!isHilActive || submittingHil)
+                ? { label: activityLabel, stepName: currentStep, memberEntityId: activeMember?.memberEntityId, memberName: activeMember?.displayName }
+                : undefined
+            }
+            style={activityStyle}
+            render={renderActivity}
+          />
+        )
+      )}
 
       <div className="ag-chat-discussion__input">
         <ChatInput
           onSend={handleInputSend}
           hint={inputHint}
           hilHint={hilInputHint}
+          initialText={initialInputText}
           isHil={isHilActive}
           loading={submittingHil}
           // A pending question means the run is waiting on the user — except while their reply is in flight: that request only

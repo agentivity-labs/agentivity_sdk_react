@@ -73,6 +73,7 @@ export class ChatController {
   private isAwaitingResponseState = false;
   private pendingHilGateState: ChatHilGate | undefined;
   private activeMemberState: ActiveChatMember | undefined;
+  private currentStepState: string | undefined;
   private runErrorState: AgUiRunError | undefined;
   // Replaced (never mutated) on every change so it is a stable useSyncExternalStore snapshot.
   private memberStatusesState: ReadonlyMap<string, TeamMemberStatus> = new Map();
@@ -117,6 +118,29 @@ export class ChatController {
    */
   get activeMember(): ActiveChatMember | undefined {
     return this.activeMemberState;
+  }
+
+  /**
+   * The step of the run in progress, as the stream names it (the node id for a workflow), or `undefined` between steps and
+   * when no run is in progress. For an app that can say it in words, in the activity indicator for instance.
+   */
+  get currentStep(): string | undefined {
+    return this.currentStepState;
+  }
+
+  /**
+   * Tells the controller that its source of events is gone for good (a stream closed, a request aborted) without having
+   * said the run was over: the conversation must not look busy for ever. The built-in run stream reconnects on its own and
+   * does not need it; it is for apps that feed {@link feedEvent} from a source of their own.
+   */
+  streamEnded(): void {
+    if (!this.isAwaitingResponseState && !this.activeMemberState && !this.currentStepState) return;
+    this.isAwaitingResponseState = false;
+    this.activeMemberState = undefined;
+    this.currentStepState = undefined;
+    this.settleWorkingMembers(false);
+    this.settleWorkingSteps(false);
+    this.notify();
   }
 
   /**
@@ -249,6 +273,7 @@ export class ChatController {
     this.pendingHilGateState = undefined;
     this.isAwaitingResponseState = false;
     this.activeMemberState = undefined;
+    this.currentStepState = undefined;
     this.runErrorState = undefined;
     this.memberStatusesState = new Map();
     this.stepStatusesState = new Map();
@@ -271,6 +296,7 @@ export class ChatController {
       case 'RUN_FINISHED': {
         this.isAwaitingResponseState = false;
         this.activeMemberState = undefined;
+        this.currentStepState = undefined;
         this.settleWorkingMembers(event.outcome?.kind === 'interrupt');
         this.settleWorkingSteps(event.outcome?.kind === 'interrupt');
         if (event.outcome?.kind === 'interrupt') {
@@ -294,6 +320,7 @@ export class ChatController {
       case 'RUN_ERROR':
         this.isAwaitingResponseState = false;
         this.activeMemberState = undefined;
+        this.currentStepState = undefined;
         this.runErrorState = { message: event.message, code: event.code };
         this.settleWorkingMembers(false);
         this.settleWorkingSteps(false);
@@ -308,7 +335,10 @@ export class ChatController {
       // stepStatuses (any run — stepName is always present, so this fires for a Workflow's
       // node-by-node progress too, not just a Team's member turns).
       case 'STEP_STARTED':
-        if (event.stepName) this.setStepStatus(event.stepName, 'working');
+        if (event.stepName) {
+          this.currentStepState = event.stepName;
+          this.setStepStatus(event.stepName, 'working');
+        }
         if (event.memberEntityId || event.displayName) {
           this.activeMemberState = { memberEntityId: event.memberEntityId, displayName: event.displayName };
           if (event.memberEntityId) this.setMemberStatus(event.memberEntityId, 'working');
@@ -319,6 +349,7 @@ export class ChatController {
       case 'STEP_FINISHED': {
         // A step that ended because it failed says so (`error`): its member is shown as failed, not as done.
         const outcome = event.error ? 'failed' : 'done';
+        if (event.stepName === this.currentStepState) this.currentStepState = undefined;
         if (event.stepName) this.setStepStatus(event.stepName, outcome);
         const hadActiveMember = this.activeMemberState || event.memberEntityId;
         if (hadActiveMember) {

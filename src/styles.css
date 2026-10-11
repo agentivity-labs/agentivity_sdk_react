@@ -217,6 +217,89 @@
   30% { opacity: 1; transform: translateY(-2px); }
 }
 
+/* The "it is working" line. Its colour and its pace are variables an app can set on any ancestor. */
+.ag-chat-activity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.ag-chat-activity__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 14px;
+  color: var(--ag-chat-activity-color, currentColor);
+}
+
+.ag-chat-activity__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ag-chat-activity--dots .ag-chat-activity__mark span {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.25;
+  animation: ag-chat-dot-pulse var(--ag-chat-activity-period, 1.2s) infinite ease-in-out;
+}
+
+.ag-chat-activity--dots .ag-chat-activity__mark span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.ag-chat-activity--dots .ag-chat-activity__mark span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+.ag-chat-activity__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.ag-chat-activity__ring {
+  box-sizing: border-box;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, currentColor 20%, transparent);
+  border-top-color: currentColor;
+}
+
+.ag-chat-activity--pulse .ag-chat-activity__mark > * {
+  animation: ag-chat-activity-breathe var(--ag-chat-activity-period, 1.2s) infinite ease-in-out;
+}
+
+.ag-chat-activity--spin .ag-chat-activity__mark > * {
+  animation: ag-chat-activity-turn var(--ag-chat-activity-period, 1.2s) infinite linear;
+}
+
+@keyframes ag-chat-activity-breathe {
+  0%, 100% { opacity: 0.35; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes ag-chat-activity-turn {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ag-chat-activity__mark span,
+  .ag-chat-activity__mark > * {
+    animation: none !important;
+    opacity: 1;
+  }
+}
+
 .ag-sr-only {
   position: absolute;
   width: 1px;
@@ -638,6 +721,23 @@
   stroke: var(--ag-team-failed, #dc2626);
 }
 
+/* A member that can be selected says so; the selected one wears a ring and its name in the accent color. A status ring wins
+   over the selection ring: the selected member at work keeps its status color. */
+.ag-team-graph__node[data-selectable='true'] {
+  cursor: pointer;
+  outline: none;
+}
+
+.ag-team-graph__node[data-selected='true'][data-status='idle'] .ag-team-graph__ring,
+.ag-team-graph__node[data-selectable='true']:focus-visible .ag-team-graph__ring {
+  stroke: var(--ag-graph-selected, #2563eb);
+}
+
+.ag-team-graph__node[data-selected='true'] .ag-team-graph__label {
+  fill: var(--ag-graph-selected, #2563eb);
+  font-weight: 700;
+}
+
 .ag-team-graph__label {
   font-size: 8.5px;
   fill: currentColor;
@@ -805,6 +905,21 @@
 
 .ag-workflow-graph__glyph {
   fill: currentColor;
+}
+
+.ag-workflow-graph__node[data-selectable='true'] {
+  cursor: pointer;
+  outline: none;
+}
+
+.ag-workflow-graph__node[data-selected='true'][data-status='idle'] .ag-workflow-graph__ring,
+.ag-workflow-graph__node[data-selectable='true']:focus-visible .ag-workflow-graph__ring {
+  stroke: var(--ag-graph-selected, #2563eb) !important;
+}
+
+.ag-workflow-graph__node[data-selected='true'] .ag-workflow-graph__label {
+  fill: var(--ag-graph-selected, #2563eb);
+  font-weight: 700;
 }
 
 .ag-workflow-graph__ring {
