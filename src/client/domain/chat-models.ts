@@ -104,3 +104,10 @@ export interface InteractionThreadDetail {
   thread: InteractionThread;
   messages: ThreadMessage[];
 }
+
+/** A message written in a conversation of an execution (`POST /api/v1/executions/{executionId}/threads/{threadId}/messages`). */
+export interface PostedThreadMessage {
+  executionId: string;
+  threadId: string;
+  messageId: string;
+}

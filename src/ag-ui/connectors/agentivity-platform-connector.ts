@@ -44,15 +44,13 @@ export interface AgUiStartRunOptions {
 
 /** Options for {@link AgentivityPlatformConnector.sendMessage}. */
 export interface AgUiSendMessageOptions {
-  /** Thread to post the message into. Uses the default thread when omitted. */
+  /** Conversation to write the message in. The main conversation of the execution when omitted. */
   threadId?: string;
-  /** Optional HIL interaction request ID when responding to a specific gate. */
-  interactionRequestId?: string;
 }
 
 // ── Thread models ─────────────────────────────────────────────────────────────
 
-/** A chat thread on a run, returned by {@link AgentivityPlatformConnector.listThreads}. */
+/** A conversation of an execution, returned by {@link AgentivityPlatformConnector.listThreads}. */
 export interface AgUiRunThread {
   threadId: string;
   title: string;
@@ -65,7 +63,7 @@ function parseRunThread(json: Record<string, unknown>): AgUiRunThread {
   return { threadId: String(json['threadId'] ?? '').trim(), title: String(json['title'] ?? '').trim(), isDefault: json['isDefault'] === true, status: String(json['status'] ?? '').trim(), createdAt: String(json['createdAt'] ?? '').trim() };
 }
 
-/** A message in a run thread, returned by {@link AgentivityPlatformConnector.listMessages}. */
+/** A message in a conversation of an execution, returned by {@link AgentivityPlatformConnector.listMessages}. */
 export interface AgUiThreadMessage {
   messageId: string;
   threadId: string;
@@ -93,8 +91,9 @@ function parseThreadMessage(json: Record<string, unknown>): AgUiThreadMessage {
  * REST + SSE connector for the Agentivity platform backend (EPIC-0449 contract)
  * — port of `AgentivityPlatformConnector`.
  *
- * Implements the unified `/api/v1/runs` API: starting runs, listening to live
- * AG-UI events over SSE, resuming HIL interrupts, and sending chat messages.
+ * Works at the level of an execution (`/api/v1/executions`): starting one, listening to its live AG-UI events over
+ * SSE, answering the questions it asks a person, and writing in its conversation. Runs, the levels inside an
+ * execution, are never needed.
  * Bearer-token auth (distinct from {@link AgentivityClient}'s session-based
  * client — this is a standalone alternative for consumers authenticating with
  * an API key).
@@ -108,10 +107,10 @@ function parseThreadMessage(json: Record<string, unknown>): AgUiThreadMessage {
  * });
  * ```
  *
- * ## HIL resume
+ * ## Answering a question
  * ```ts
  * // Stream emits RUN_FINISHED with outcome.kind === 'interrupt' — collect user reply:
- * await connector.resumeRun(handle.runId, { interruptId: interrupt.id, responseText: userReply });
+ * await connector.respond(handle.executionId, { requestId: interrupt.id, responseText: userReply });
  * // The same SSE channel re-emits RUN_STARTED and continues.
  * ```
  */
@@ -127,8 +126,8 @@ export class AgentivityPlatformConnector {
     this.fetchImpl = args.fetchImpl ?? globalThis.fetch.bind(globalThis);
   }
 
-  private get runsBase(): string {
-    return `${this.baseUrl}/api/v1/runs`;
+  private get executionsBase(): string {
+    return `${this.baseUrl}/api/v1/executions`;
   }
 
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -147,15 +146,15 @@ export class AgentivityPlatformConnector {
   // ── Run start ────────────────────────────────────────────────────────────
 
   /**
-   * Starts a run for `entityId` (agent, team, or workflow) and returns an
-   * {@link AgUiRunHandle}. Pass `handle.streamUrl` to {@link openRunStream}
+   * Starts an execution of `entityId` (agent, team, or workflow) and returns an
+   * {@link AgUiRunHandle} with its `executionId`. Pass `handle.streamUrl` to {@link openRunStream}
    * for the best performance (avoids re-computing the URL).
    */
   async startRun(entityId: string, input: string, options?: AgUiStartRunOptions): Promise<AgUiRunHandle> {
     const body: Record<string, unknown> = { entityId, input, enableHil: options?.enableHil ?? false };
     if (options?.executionId?.trim()) body['executionId'] = options.executionId.trim();
     if (options?.maxAgentIterations != null) body['maxAgentIterations'] = options.maxAgentIterations;
-    const data = await this.request<Record<string, unknown>>('POST', this.runsBase, body);
+    const data = await this.request<Record<string, unknown>>('POST', this.executionsBase, body);
     return parseRunHandle(data ?? {});
   }
 
@@ -173,7 +172,9 @@ export class AgentivityPlatformConnector {
    * `${baseUrl}/api/v1/streams/runs/{runId}/events`.
    */
   openRunStream(runId: string, options: { streamUrl?: string } | undefined, listener: (event: AgUiEvent) => void): () => void {
-    const url = options?.streamUrl || `${this.baseUrl}/api/v1/streams/runs/${runId}/events`;
+    // The platform gives the stream as a path of its own: it is read from it.
+    const given = options?.streamUrl;
+    const url = given ? (/^https?:/i.test(given) ? given : `${this.baseUrl}${given}`) : `${this.baseUrl}/api/v1/streams/runs/${runId}/events`;
 
     const channel = new AgUiSseChannel<AgUiEvent>({
       opener: async (path, { lastEventId, signal }) => {
@@ -201,42 +202,39 @@ export class AgentivityPlatformConnector {
     };
   }
 
-  // ── HIL resume ───────────────────────────────────────────────────────────
+  // ── Questions ────────────────────────────────────────────────────────────
 
   /**
-   * Resumes `runId` after a HIL interrupt by submitting `responseText` for
-   * `interruptId`. After a successful POST the backend emits `RUN_STARTED` on
-   * the open SSE channel and the run continues.
+   * Answers the question `requestId` of the execution `executionId` (for an interrupt, its id) with `responseText`.
+   * Several questions can wait at once: the one answered is named, and the platform takes up again the run that asked
+   * it. After a successful POST the backend emits `RUN_STARTED` on the open SSE channel and the run continues.
    */
-  async resumeRun(runId: string, options: { interruptId: string; responseText: string }): Promise<void> {
-    await this.request('POST', `${this.runsBase}/${runId}/resume`, { interruptId: options.interruptId, response: { text: options.responseText } });
+  async respond(executionId: string, options: { requestId: string; responseText: string }): Promise<void> {
+    await this.request('POST', `${this.executionsBase}/${executionId}/respond`, { requestId: options.requestId, response: options.responseText });
   }
 
-  // ── Free-chat message ────────────────────────────────────────────────────
+  // ── Conversation ─────────────────────────────────────────────────────────
 
-  /**
-   * Sends a free-text `message` into an ongoing run. Use `options` to target
-   * a specific thread or attach an interaction request ID when responding to
-   * a specific HIL gate.
-   */
-  async sendMessage(runId: string, message: string, options?: AgUiSendMessageOptions): Promise<void> {
-    const body: Record<string, unknown> = { message };
-    if (options?.threadId?.trim()) body['threadId'] = options.threadId.trim();
-    if (options?.interactionRequestId?.trim()) body['interactionRequestId'] = options.interactionRequestId.trim();
-    await this.request('POST', `${this.runsBase}/${runId}/interactions`, body);
+  /** Writes `message` in a conversation of the execution: the one of `options`, or its main one. To answer a question, use {@link respond}. */
+  async sendMessage(executionId: string, message: string, options?: AgUiSendMessageOptions): Promise<void> {
+    let threadId = options?.threadId?.trim();
+    if (!threadId) {
+      const threads = await this.listThreads(executionId);
+      if (threads.length === 0) throw new Error(`Execution ${executionId} has no conversation to write in yet.`);
+      threadId = (threads.find((t) => t.isDefault) ?? threads[0]!).threadId;
+    }
+    await this.request('POST', `${this.executionsBase}/${executionId}/threads/${threadId}/messages`, { text: message });
   }
 
-  // ── Thread management ────────────────────────────────────────────────────
-
-  /** Lists the chat threads for `runId`. */
-  async listThreads(runId: string): Promise<AgUiRunThread[]> {
-    const data = await this.request<unknown>('GET', `${this.runsBase}/${runId}/threads`);
+  /** Lists the conversations of the execution `executionId`. */
+  async listThreads(executionId: string): Promise<AgUiRunThread[]> {
+    const data = await this.request<unknown>('GET', `${this.executionsBase}/${executionId}/threads`);
     return Array.isArray(data) ? data.filter((d): d is Record<string, unknown> => !!d && typeof d === 'object').map(parseRunThread) : [];
   }
 
-  /** Lists messages in `threadId` for `runId`. */
-  async listMessages(runId: string, threadId: string): Promise<AgUiThreadMessage[]> {
-    const data = await this.request<unknown>('GET', `${this.runsBase}/${runId}/threads/${threadId}/messages`);
+  /** Lists the messages of the conversation `threadId` of the execution `executionId`. */
+  async listMessages(executionId: string, threadId: string): Promise<AgUiThreadMessage[]> {
+    const data = await this.request<unknown>('GET', `${this.executionsBase}/${executionId}/threads/${threadId}/messages`);
     return Array.isArray(data) ? data.filter((d): d is Record<string, unknown> => !!d && typeof d === 'object').map(parseThreadMessage) : [];
   }
 }

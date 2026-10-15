@@ -4,17 +4,16 @@ import {
   type HilPendingResponse,
   type HilRespondResult,
   type ImageAttachmentInput,
-  type RunInteractionResponse,
   type SessionStartedResponse,
   parseExecutionRecord,
   parseHilPendingResponse,
-  parseRunInteractionResponse,
+  parseHilRespondResult,
   parseSessionStartedResponse,
 } from '../domain/entity-models.js';
 import { parseExecutionStatuses, type ExecutionStatuses } from '../domain/execution-status-models.js';
 
 /**
- * Run lifecycle endpoints: start, HIL, interactions, and SSE streams.
+ * Execution lifecycle endpoints: start, questions to a person, and SSE streams.
  *
  * "Execution" is the user-facing, launched concept (`POST /api/v1/executions`);
  * a "run" is an internal engine-level detail — one execution can contain a tree
@@ -71,8 +70,8 @@ export class RunsApi {
   }
 
   // ---------------------------------------------------------------------------
-  // HIL — GET /api/v1/executions/{executionId}/hil/pending
-  //         POST /api/v1/runs/{runId}/resume (see submitHilResponse below)
+  // Questions of an execution — GET /api/v1/executions/{executionId}/hil/pending
+  //                             POST /api/v1/executions/{executionId}/respond
   // ---------------------------------------------------------------------------
 
   async fetchPendingHil(executionId: string): Promise<HilPendingResponse> {
@@ -82,63 +81,18 @@ export class RunsApi {
   }
 
   /**
-   * Submits a reply to a pending HIL gate. Internally calls `POST /runs/{runId}/resume` — NOT
-   * `POST /executions/{executionId}/respond` (the latter resumes the run but never persists the
-   * reply as a chat message, so it silently vanishes from any chat transcript rendered from
-   * `CHAT_MESSAGE_RECEIVED` events). The route's `{runId}` segment is resolved server-side by the
-   * request's `interruptId` regardless of what's passed — the backend's own doc comment on that
-   * endpoint confirms this is intended ("may need lookup when the frontend only knows the
-   * streamId") — so `executionId` is used there directly; callers of this method never need a
-   * real run id. Return shape is unchanged from the previous implementation; the only signature
-   * addition is the optional `source`, needed so the backend can tag a widget-submitted reply as
-   * such (`ChatMessageBubble` hides widget-sourced messages — the widget itself already displays
-   * the answer inline, so without this tag a widget submission renders as a second, duplicate
-   * bubble now that replies are actually persisted to the chat).
+   * Answers the question `requestId` of the execution `executionId`, whatever the channel it was asked through (chat,
+   * form, widget…). Several questions can wait at once: the one answered is named, and the platform takes up again the
+   * run that asked it. The answer is kept in the conversation the question was asked in; `source` is `'widget'` when a
+   * widget gave it (the widget shows the answer itself, so the chat does not show it again).
    */
   async submitHilResponse(args: { executionId: string; requestId: string; response: string; source?: string }): Promise<HilRespondResult> {
     const normalizedExecution = this.c.requireNormalizedId(args.executionId, 'Execution id');
     const normalizedRequest = this.c.requireNormalizedId(args.requestId, 'Request id');
-    const data = await this.c.post<Record<string, unknown>>(AgentivityHttpCore.v1(`/runs/${normalizedExecution}/resume`), {
-      interruptId: normalizedRequest,
-      response: { text: args.response, source: args.source },
-    });
-    // /runs/{runId}/resume responds with {runId, status}, not the {executionId, requestId,
-    // runId, state} shape HilRespondResult callers expect — executionId/requestId are already
-    // known here (they're this method's own inputs), so the result is built locally instead of
-    // parsed wholesale from the response body.
-    return {
-      executionId: args.executionId,
-      runId: String(data?.['runId'] ?? args.executionId).trim(),
-      requestId: args.requestId,
-      state: String(data?.['status'] ?? 'resumed').trim(),
-    };
-  }
-
-  // ---------------------------------------------------------------------------
-  // Send message or HIL response — POST /api/v1/runs/{runId}/interactions
-  // ---------------------------------------------------------------------------
-
-  async sendRunInteraction(args: {
-    runId: string;
-    message: string;
-    threadId?: string;
-    authorId?: string;
-    authorName?: string;
-    interactionRequestId?: string;
-    outcome?: string;
-    executionId?: string;
-  }): Promise<RunInteractionResponse> {
-    const normalizedRunId = this.c.requireNormalizedId(args.runId, 'Run id');
-    const body: Record<string, unknown> = { message: args.message };
-    if (args.threadId?.trim()) body['threadId'] = args.threadId.trim();
-    if (args.authorId?.trim()) body['authorId'] = args.authorId.trim();
-    if (args.authorName?.trim()) body['authorName'] = args.authorName.trim();
-    if (args.interactionRequestId?.trim()) body['interactionRequestId'] = args.interactionRequestId.trim();
-    if (args.outcome?.trim()) body['outcome'] = args.outcome.trim();
-    if (args.executionId?.trim()) body['executionId'] = args.executionId.trim();
-
-    const data = await this.c.post<Record<string, unknown>>(AgentivityHttpCore.v1(`/runs/${normalizedRunId}/interactions`), body);
-    return parseRunInteractionResponse(data ?? {});
+    const body: Record<string, unknown> = { requestId: normalizedRequest, response: args.response };
+    if (args.source) body['source'] = args.source;
+    const data = await this.c.post<Record<string, unknown>>(AgentivityHttpCore.v1(`/executions/${normalizedExecution}/respond`), body);
+    return parseHilRespondResult(data ?? {});
   }
 
   // ---------------------------------------------------------------------------
@@ -192,32 +146,6 @@ export class RunsApi {
   async cancelRun(runId: string): Promise<void> {
     const normalizedRunId = this.c.requireNormalizedId(runId, 'Run id');
     await this.c.post<void>(AgentivityHttpCore.v1(`/runs/${normalizedRunId}/cancel`));
-  }
-
-  // ---------------------------------------------------------------------------
-  // Stream-scoped HIL response — POST /api/v1/streams/{streamId}/interactions
-  // Chat uses only streamId + requestId. The backend resolves the runId internally.
-  // ---------------------------------------------------------------------------
-
-  async respondToStreamInteraction(args: { streamId: string; requestId: string; text: string; source?: string }): Promise<void> {
-    const normalizedStreamId = this.c.requireNormalizedId(args.streamId, 'Stream id');
-    await this.c.post<void>(AgentivityHttpCore.v1(`/streams/${normalizedStreamId}/interactions`), {
-      requestId: args.requestId,
-      text: args.text,
-      source: args.source ?? 'text',
-    });
-  }
-
-  // ---------------------------------------------------------------------------
-  // AG-UI standard resume — POST /api/v1/runs/{runId}/resume
-  // ---------------------------------------------------------------------------
-
-  async resumeRun(args: { runId: string; interruptId: string; responseText: string; source?: string }): Promise<void> {
-    const normalizedRunId = this.c.requireNormalizedId(args.runId, 'Run id');
-    await this.c.post<void>(AgentivityHttpCore.v1(`/runs/${normalizedRunId}/resume`), {
-      interruptId: args.interruptId,
-      response: { text: args.responseText, source: args.source },
-    });
   }
 
   // ---------------------------------------------------------------------------

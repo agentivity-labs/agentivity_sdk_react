@@ -46,6 +46,7 @@ export class AgUiPlatformRunController {
   private interruptValue: AgUiInterrupt | undefined;
   private errorValue: string | undefined;
   private runIdValue: string | undefined;
+  private executionIdValue: string | undefined;
   private unsubscribeStream: (() => void) | undefined;
 
   // In-progress streaming message buffer
@@ -84,6 +85,10 @@ export class AgUiPlatformRunController {
   get runId(): string | undefined {
     return this.runIdValue;
   }
+  /** The execution `start` started, set once it is known: what questions are answered in and messages written to. */
+  get executionId(): string | undefined {
+    return this.executionIdValue;
+  }
 
   // ── Actions ────────────────────────────────────────────────────────────
 
@@ -101,6 +106,7 @@ export class AgUiPlatformRunController {
     try {
       const handle = await this.connector.startRun(entityId, input, options);
       this.runIdValue = handle.runId;
+      this.executionIdValue = handle.executionId;
       this.notify();
 
       this.unsubscribeStream = this.connector.openRunStream(handle.runId, { streamUrl: handle.streamUrl }, this.handleEvent);
@@ -115,19 +121,19 @@ export class AgUiPlatformRunController {
    * Resumes the current run after a HIL interrupt. `responseText` is sent to
    * the backend as the user's response. `interrupt` is cleared and `status`
    * is set back to `'running'` in anticipation of the `RUN_STARTED` event.
-   * No-op if there is no active interrupt or no run ID.
+   * No-op if there is no active interrupt or no execution.
    */
   async resume(responseText: string): Promise<void> {
-    const runId = this.runIdValue;
+    const executionId = this.executionIdValue;
     const activeInterrupt = this.interruptValue;
-    if (runId == null || activeInterrupt == null) return;
+    if (executionId == null || activeInterrupt == null) return;
 
     this.interruptValue = undefined;
     this.statusValue = 'running';
     this.notify();
 
     try {
-      await this.connector.resumeRun(runId, { interruptId: activeInterrupt.id, responseText });
+      await this.connector.respond(executionId, { requestId: activeInterrupt.id, responseText });
     } catch (error) {
       this.statusValue = 'failed';
       this.errorValue = String(error);
@@ -135,11 +141,11 @@ export class AgUiPlatformRunController {
     }
   }
 
-  /** Sends a free-text `message` into the current run. No-op if there is no active run ID. */
+  /** Writes a free-text `message` in the conversation of the current execution. No-op if there is no execution. */
   async send(message: string, options?: AgUiSendMessageOptions): Promise<void> {
-    const runId = this.runIdValue;
-    if (runId == null) return;
-    await this.connector.sendMessage(runId, message, options);
+    const executionId = this.executionIdValue;
+    if (executionId == null) return;
+    await this.connector.sendMessage(executionId, message, options);
   }
 
   /** Cancels the active run stream and resets all state back to `'idle'`. */
@@ -151,6 +157,7 @@ export class AgUiPlatformRunController {
     this.interruptValue = undefined;
     this.errorValue = undefined;
     this.runIdValue = undefined;
+    this.executionIdValue = undefined;
     this.clearInProgress();
     this.notify();
   }

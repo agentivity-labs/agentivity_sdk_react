@@ -127,44 +127,30 @@ export function parseHilPendingResponse(json: Record<string, unknown>): HilPendi
 
 export interface HilRespondResult {
   executionId: string;
+  /** The run that asked the question, and was taken up again. */
   runId: string;
   requestId: string;
   /** Typically "resumed". */
   state: string;
+  /** The conversation the answer was kept in, and its message there. */
+  threadId?: string;
+  messageId?: string;
 }
 
 export function parseHilRespondResult(json: Record<string, unknown>): HilRespondResult {
-  return {
-    // Accept executionId from new contract; fall back to legacy sessionId.
-    executionId: String(json['executionId'] ?? json['sessionId'] ?? '').trim(),
-    runId: String(json['runId'] ?? '').trim(),
-    requestId: String(json['requestId'] ?? '').trim(),
-    state: String(json['state'] ?? '').trim(),
-  };
-}
-
-// ── Interactions ──────────────────────────────────────────────────────────────
-
-export interface RunInteractionResponse {
-  status: string;
-  runId: string;
-  threadId?: string;
-  messageId?: string;
-  interactionRequestId?: string;
-}
-
-export function parseRunInteractionResponse(json: Record<string, unknown>): RunInteractionResponse {
   const trimmedOrUndefined = (v: unknown): string | undefined => {
     if (v == null) return undefined;
     const s = String(v).trim();
     return s.length === 0 ? undefined : s;
   };
   return {
-    status: String(json['status'] ?? '').trim(),
+    // Accept executionId from new contract; fall back to legacy sessionId.
+    executionId: String(json['executionId'] ?? json['sessionId'] ?? '').trim(),
     runId: String(json['runId'] ?? '').trim(),
+    requestId: String(json['requestId'] ?? '').trim(),
+    state: String(json['state'] ?? '').trim(),
     threadId: trimmedOrUndefined(json['threadId']),
     messageId: trimmedOrUndefined(json['messageId']),
-    interactionRequestId: trimmedOrUndefined(json['interactionRequestId']),
   };
 }
 

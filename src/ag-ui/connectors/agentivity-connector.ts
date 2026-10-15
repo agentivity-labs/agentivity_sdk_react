@@ -100,15 +100,15 @@ export class AgentivityConnector {
   // ── Cancellation ──────────────────────────────────────────────────────────
 
   /**
-   * Cancels an in-progress agent or team run. Sends `DELETE /v1/runs/{runId}`.
+   * Cancels an in-progress agent or team run. Sends `POST /api/v1/runs/{runId}/cancel`.
    * Callers should also dispose any active SSE subscription for the run's
    * event stream. Throws if the server returns a non-2xx status.
    */
   async cancel(args: { runId: string }): Promise<void> {
     const headers: Record<string, string> = { 'x-api-key': this.apiKey, ...(this.organizationId ? { 'x-organization-id': this.organizationId } : {}) };
-    const response = await this.fetchImpl(`${this.baseUrl}/v1/runs/${args.runId}`, { method: 'DELETE', headers });
+    const response = await this.fetchImpl(`${this.baseUrl}/api/v1/runs/${encodeURIComponent(args.runId)}/cancel`, { method: 'POST', headers });
     if (!response.ok) {
-      throw new Error(`AgentivityConnector.cancel: DELETE /v1/runs/${args.runId} failed with status ${response.status}`);
+      throw new Error(`AgentivityConnector.cancel: POST /api/v1/runs/${args.runId}/cancel failed with status ${response.status}`);
     }
   }
 }

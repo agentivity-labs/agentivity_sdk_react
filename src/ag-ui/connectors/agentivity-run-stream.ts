@@ -96,11 +96,6 @@ export class AgentivityRunStream implements PlatformStream {
     return new AgentivityRunStream({ opener: args.opener, path: `/api/v1/streams/runs/${args.runId.trim()}/events`, decoder: args.decoder });
   }
 
-  /** Execution-level stream aggregating all runs in an execution chain. */
-  static forExecution(args: { opener: AgUiSseOpener; executionId: string; decoder?: AgentivitySignalDecoder }): AgentivityRunStream {
-    return new AgentivityRunStream({ opener: args.opener, path: `/api/v1/streams/runs/executions/${args.executionId.trim()}/events`, decoder: args.decoder });
-  }
-
   /** Workspace-level collection stream covering all runs (`/api/v1/streams/runs/events`). */
   static forCollection(args: { opener: AgUiSseOpener; decoder?: AgentivitySignalDecoder }): AgentivityRunStream {
     return new AgentivityRunStream({ opener: args.opener, path: '/api/v1/streams/runs/events', decoder: args.decoder });
