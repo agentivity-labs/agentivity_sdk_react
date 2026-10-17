@@ -1,5 +1,5 @@
 import { AgentivityHttpCore } from '../http-core.js';
-import { parseDataTableRow, type DataTableRow } from '../domain/datatable-models.js';
+import { parseDataTableRow, type DataTableCondition, type DataTableRow, type DataTableRowsPage } from '../domain/datatable-models.js';
 
 /**
  * Row-level access to shared Data Table assets — `/api/v1/datatables/{id}/rows`.
@@ -28,6 +28,28 @@ export class DataTablesApi {
       query: { whereColumn: args?.whereColumn, whereValue: args?.whereValue },
     });
     return (data ?? []).map(parseDataTableRow);
+  }
+
+  /**
+   * `GET /api/v1/datatables/{id}/rows` — one page of a search: the rows meeting every condition of `where` (`between` takes
+   * `[low, high]`), sorted by `orderBy` (`'amount desc, customer'`), from `offset`, at most `limit` of them — with the total the
+   * platform found, so that a page is never taken for the whole table. The search is done by the platform's database.
+   */
+  async listRowsPage(tableId: string, args?: { where?: DataTableCondition[]; orderBy?: string; limit?: number; offset?: number }): Promise<DataTableRowsPage> {
+    const normalized = this.c.requireNormalizedId(tableId, 'Data Table id');
+    const offset = args?.offset ?? 0;
+    const { data, headers } = await this.c.getWithHeaders<Record<string, unknown>[]>(AgentivityHttpCore.v1(`/datatables/${normalized}/rows`), {
+      query: {
+        where: args?.where && args.where.length > 0 ? JSON.stringify(args.where) : undefined,
+        orderBy: args?.orderBy?.trim() || undefined,
+        limit: args?.limit,
+        offset: offset > 0 ? offset : undefined,
+      },
+    });
+    const rows = (data ?? []).map(parseDataTableRow);
+    const total = Number.parseInt(headers.get('X-Total-Count') ?? '', 10);
+    const found = Number.isNaN(total) ? offset + rows.length : total;
+    return { rows, total: found, offset, hasMore: offset + rows.length < found };
   }
 
   /** `POST /api/v1/datatables/{id}/rows` — inserts a row, returns it with its assigned `id`. */

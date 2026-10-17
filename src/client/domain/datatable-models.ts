@@ -10,6 +10,21 @@ export interface DataTableRow {
   [column: string]: unknown;
 }
 
+/** One condition of a Data Table search: `op` is one of `=`, `!=`, `contains`, `starts_with`, `>`, `>=`, `<`, `<=`, `between` (`value: [low, high]`), `is_empty`, `is_not_empty` (no `value`). */
+export interface DataTableCondition {
+  column: string;
+  op: string;
+  value?: unknown;
+}
+
+/** One page of a Data Table search: its rows, where it starts, and how many rows the search found in all. */
+export interface DataTableRowsPage {
+  rows: DataTableRow[];
+  total: number;
+  offset: number;
+  hasMore: boolean;
+}
+
 export function parseDataTableRow(json: Record<string, unknown>): DataTableRow {
   const { id, createdAt, updatedAt, ...rest } = json;
   return {

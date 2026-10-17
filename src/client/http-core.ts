@@ -71,6 +71,10 @@ export class AgentivityHttpCore {
   }
 
   private async request<T>(method: string, path: string, body?: unknown, options?: RequestOptions): Promise<T> {
+    return (await this.send<T>(method, path, body, options)).data;
+  }
+
+  private async send<T>(method: string, path: string, body?: unknown, options?: RequestOptions): Promise<{ data: T; headers: Headers }> {
     const url = this.resolveUrl(path, options?.query);
     const headers: Record<string, string> = { Accept: 'application/json', ...options?.headers };
     let payload: BodyInit | undefined;
@@ -102,11 +106,16 @@ export class AgentivityHttpCore {
       throw ApiException.fromResponse(data, response.status);
     }
     if (!options?.dataBody) throwIfApiFailurePayload(data, response.status);
-    return data as T;
+    return { data: data as T, headers: response.headers };
   }
 
   get<T>(path: string, options?: RequestOptions): Promise<T> {
     return this.request<T>('GET', path, undefined, options);
+  }
+
+  /** A GET whose response headers say something too (a total, say), given back with its body. */
+  getWithHeaders<T>(path: string, options?: RequestOptions): Promise<{ data: T; headers: Headers }> {
+    return this.send<T>('GET', path, undefined, options);
   }
 
   post<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T> {

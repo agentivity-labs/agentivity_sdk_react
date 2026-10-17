@@ -85,7 +85,7 @@ export { UploadsApi } from './client/api/uploads-api.js';
 export type { UploadedFile } from './client/api/uploads-api.js';
 export { DataTablesApi } from './client/api/datatables-api.js';
 export { parseDataTableRow } from './client/domain/datatable-models.js';
-export type { DataTableRow } from './client/domain/datatable-models.js';
+export type { DataTableCondition, DataTableRow, DataTableRowsPage } from './client/domain/datatable-models.js';
 
 // ── Client: top-level facade ─────────────────────────────────────────────────
 export { AgentivityClient } from './client/agentivity-client.js';

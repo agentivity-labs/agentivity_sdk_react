@@ -14,7 +14,7 @@ function records(value: unknown): Record<string, unknown>[] {
 
 /** One member of a team, as saved in the team editor. */
 export interface TeamMemberPosition {
-  /** This member's slot in the team (what connections and `managerAgentId` refer to). */
+  /** This member's slot in the team (what connections refer to). */
   topologyPositionId: string;
   /** The agent, team or workflow behind the slot — the id a run reports on each of its steps. */
   memberEntityId: string;
@@ -42,8 +42,6 @@ export interface TeamStructure {
   name: string;
   /** `sequential`, `concurrent`, `handoff`, `group-chat`, `manager-led`… */
   orchestratorId: string;
-  /** The {@link TeamMemberPosition.topologyPositionId} of the manager (manager-led teams). */
-  managerTopologyPositionId?: string;
   goal?: string;
   members: TeamMemberPosition[];
   connections: TeamConnectionDefinition[];
@@ -78,7 +76,6 @@ export function parseTeamStructure(json: Record<string, unknown>): TeamStructure
     id: text(json['id']) ?? '',
     name: text(json['name']) ?? '',
     orchestratorId: text(json['orchestratorId']) ?? '',
-    managerTopologyPositionId: text(json['managerAgentId']),
     goal: text(json['goal']),
     members: records(json['members']).map(parseTeamMemberPosition),
     connections: records(json['connections']).map((c) => ({
@@ -90,7 +87,10 @@ export function parseTeamStructure(json: Record<string, unknown>): TeamStructure
   };
 }
 
-/** The manager's member, when the team has one. */
+/**
+ * The manager of a manager-led team: the member at the top of its topology — the first one. Nothing names it: its position makes it
+ * the manager. Undefined for a team of another kind.
+ */
 export function teamManager(team: TeamStructure): TeamMemberPosition | undefined {
-  return team.managerTopologyPositionId ? team.members.find((m) => m.topologyPositionId === team.managerTopologyPositionId) : undefined;
+  return team.orchestratorId === 'manager-led' ? team.members[0] : undefined;
 }
