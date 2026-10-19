@@ -16,6 +16,8 @@ interface SummarySection {
   badge?: string;
   /** Where the section's subject can be seen (shop page, article) — makes the label and picture a link. */
   url?: string;
+  /** Lines of text rather than facts (the steps of a plan): they read from the left. */
+  list: boolean;
   items: SummaryItem[];
 }
 
@@ -29,6 +31,7 @@ function asSections(raw: unknown): SummarySection[] {
       imageAlt: typeof s['imageAlt'] === 'string' ? s['imageAlt'] : undefined,
       badge: typeof s['badge'] === 'string' && s['badge'].trim() ? s['badge'] : undefined,
       url: safeHttpUrl(s['url']),
+      list: s['list'] === true,
       items: (Array.isArray(s['items']) ? (s['items'] as unknown[]) : [])
         .filter((i): i is Record<string, unknown> => !!i && typeof i === 'object')
         .map((i) => ({ key: i['key'] != null ? String(i['key']) : '', value: i['value'] != null ? String(i['value']) : '', highlight: i['highlight'] === true })),
@@ -42,7 +45,8 @@ const SECTION_IMAGE_SIZE = 120;
  * `AgSummaryCard`. Display-only — no submit callback; pair with a
  * {@link ConfirmCard} below it.
  *
- * Agent props: `{ title, imageUrl?, imageAlt?, sections: [{ label?, imageUrl?, imageAlt?, badge?, url?, items: [{ key, value, highlight? }] }], note? }`.
+ * Agent props: `{ title, imageUrl?, imageAlt?, sections: [{ label?, imageUrl?, imageAlt?, badge?, url?, list?, items: [{ key, value, highlight? }] }], note? }`.
+ * A section with `list: true` holds lines of text rather than facts (the steps of a plan): they read from the left.
  *
  * Pictures make a section a "product sheet": a card with three sections is three products, each with its photo,
  * its facts and an optional badge and link. `imageUrl` on the card itself is a banner above all sections.
@@ -91,15 +95,15 @@ export function SummaryCard({ props }: ChartProps) {
                   key={j}
                   style={{
                     display: 'flex',
-                    justifyContent: 'space-between',
+                    justifyContent: section.list ? 'flex-start' : 'space-between',
                     gap: 12,
                     padding: '9px 12px',
                     borderTop: j > 0 ? '1px solid var(--ag-outline-variant, #e2e8f0)' : undefined,
                     fontSize: 12,
                   }}
                 >
-                  <span style={{ opacity: 0.6 }}>{item.key}</span>
-                  <span style={{ fontWeight: item.highlight ? 700 : 500, color: item.highlight ? 'var(--ag-primary, #2563eb)' : undefined, textAlign: 'right' }}>{item.value}</span>
+                  <span style={{ opacity: 0.6, ...(section.list ? { flex: '0 1 30%' } : {}) }}>{item.key}</span>
+                  <span style={{ fontWeight: item.highlight ? 700 : 500, color: item.highlight ? 'var(--ag-primary, #2563eb)' : undefined, textAlign: section.list ? 'left' : 'right' }}>{item.value}</span>
                 </div>
               ))}
             </div>
