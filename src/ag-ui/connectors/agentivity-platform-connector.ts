@@ -1,3 +1,4 @@
+import { ApiException } from '../../client/api-contract.js';
 import { AgUiSseChannel } from '../../protocol/sse-channel.js';
 import { parseAgUiEvent, type AgUiEvent } from '../../protocol/events.js';
 
@@ -100,7 +101,7 @@ function parseThreadMessage(json: Record<string, unknown>): AgUiThreadMessage {
  *
  * ## Quick start
  * ```ts
- * const connector = new AgentivityPlatformConnector({ baseUrl: 'https://api.agentivity.com', authToken: 'ag_live_...' });
+ * const connector = new AgentivityPlatformConnector({ baseUrl: 'https://api.agentivity.com', authToken: 'agp_...' });
  * const handle = await connector.startRun('my-workflow-id', 'Analyse this document', { enableHil: true });
  * const unsubscribe = connector.openRunStream(handle.runId, { streamUrl: handle.streamUrl }, (event) => {
  *   if (event.type === 'TEXT_MESSAGE_CONTENT') console.log(event.delta);
@@ -137,7 +138,8 @@ export class AgentivityPlatformConnector {
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
     if (!response.ok) {
-      throw new Error(`AgentivityPlatformConnector: ${method} ${path} failed with status ${response.status}`);
+      // What the instance answers, in its words (a key missing or not valid, rights, a site not allowed…).
+      throw ApiException.fromResponse(await response.json().catch(() => undefined), response.status);
     }
     const contentType = response.headers.get('content-type') ?? '';
     return contentType.includes('application/json') ? ((await response.json()) as T) : (undefined as T);

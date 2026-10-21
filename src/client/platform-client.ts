@@ -27,7 +27,7 @@ export class AgentivityPlatformClient extends AgentivityClient {
   /** Icon assets (node icons, brand icons, embedded icons) as SVG. */
   readonly svgIcons: SvgIconsApi;
 
-  constructor(args: { baseUrl: string; fetchImpl?: typeof fetch }) {
+  constructor(args: { baseUrl: string; fetchImpl?: typeof fetch; apiKey?: string }) {
     super(args);
     this.chat = new ChatContextApi(this.httpCore);
     this.agUiBundles = new AgUiBundlesApi(this.httpCore);

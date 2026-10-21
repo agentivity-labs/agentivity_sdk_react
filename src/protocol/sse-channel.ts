@@ -1,3 +1,5 @@
+import { ApiException } from '../client/api-contract.js';
+
 /**
  * Generic, reconnecting SSE channel — browser `fetch` + `ReadableStream` port of
  * the Flutter SDK's `AgUiSseChannel` (Dio-based). Same reconnect/backoff/watchdog
@@ -32,6 +34,11 @@ export type AgUiConnectionStatus = 'connecting' | 'connected' | 'reconnecting' |
  */
 export interface AgUiConnectionState {
   status: AgUiConnectionStatus;
+  /**
+   * Why the stream stopped, when the instance refused it (a key missing or not valid, rights, a site not allowed): set with
+   * 'terminated'. A refusal is not tried again — see {@link ApiException.isFinal}.
+   */
+  refusal?: ApiException;
   /** Reconnect attempts made since the last successful connection. 0 while connected. */
   attempt: number;
   /** Epoch ms of the next scheduled retry — only set while status is 'reconnecting'. */
@@ -236,7 +243,13 @@ export class AgUiSseChannel<T> {
       const response = await this.opener(this.path, { lastEventId: this.lastEventId, signal: controller.signal });
       if (this.disposed || controller.signal.aborted) return;
       if (!response.ok || !response.body) {
-        throw new Error(`SSE request to ${this.path} failed with status ${response.status}`);
+        const body: unknown = await response.json().catch(() => undefined);
+        const refusal = ApiException.fromResponse(body, response.status);
+        if (refusal.isFinal) {
+          this.refuse(refusal);
+          return;
+        }
+        throw refusal;
       }
 
       this.connectedAt = Date.now();
@@ -274,6 +287,17 @@ export class AgUiSseChannel<T> {
       }
       this.handleDisconnect();
     }
+  }
+
+  // The instance refused the stream: it stops, says why, and is not tried again.
+  private refuse(refusal: ApiException): void {
+    if (typeof console !== 'undefined') {
+      console.warn(`AgUiSseChannel refused on ${this.path}: ${refusal.message}`);
+    }
+    this.terminated = true;
+    this.abortController = null;
+    this.setConnected(false);
+    this.setConnectionState({ status: 'terminated', attempt: 0, refusal });
   }
 
   private handleFrame(frame: SseFrame): void {

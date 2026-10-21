@@ -3,6 +3,15 @@ import type { ConnectionMonitor } from './connection-monitor.js';
 
 const API_V1 = '/api/v1';
 
+// Every request of the client carries the key, unless the caller gave its own Authorization.
+function withKey(fetchImpl: typeof fetch, apiKey: string): typeof fetch {
+  return (input, init) => {
+    const headers = new Headers(init?.headers);
+    if (!headers.has('Authorization')) headers.set('Authorization', `Bearer ${apiKey}`);
+    return fetchImpl(input, { ...init, headers });
+  };
+}
+
 function normalizeBaseUrl(url: string): string {
   const trimmed = url.trim();
   return trimmed.endsWith('/') ? trimmed : `${trimmed}/`;
@@ -34,9 +43,15 @@ export class AgentivityHttpCore {
   /** Told whenever a request gets no answer (the server cannot be reached) and whenever one does. */
   readonly monitor?: ConnectionMonitor;
 
-  constructor(args: { baseUrl: string; fetchImpl?: typeof fetch; monitor?: ConnectionMonitor }) {
+  /**
+   * `apiKey`: the key a person made for this program, on an instance that asks to sign in (`agv_…`); sent with every request as
+   * `Authorization: Bearer`. Never put a secret key in a web page: a page uses a key for a web page (`agp_…`), or none.
+   */
+  constructor(args: { baseUrl: string; fetchImpl?: typeof fetch; monitor?: ConnectionMonitor; apiKey?: string }) {
     this.baseUrl = normalizeBaseUrl(args.baseUrl);
-    this.fetchImpl = args.fetchImpl ?? globalThis.fetch.bind(globalThis);
+    const fetchImpl = args.fetchImpl ?? globalThis.fetch.bind(globalThis);
+    const apiKey = args.apiKey?.trim();
+    this.fetchImpl = apiKey ? withKey(fetchImpl, apiKey) : fetchImpl;
     this.monitor = args.monitor;
   }
 

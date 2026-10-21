@@ -34,6 +34,35 @@ function asRecord(v: unknown): Record<string, unknown> | undefined {
   return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : undefined;
 }
 
+/**
+ * What the instance refuses, by the code it answers with — the words when it gives none. A refusal of the key or of its
+ * owner's rights is the instance's answer, not a failure of the network: it is not tried again.
+ */
+const refusalMessages: Record<string, string> = {
+  sign_in_required: 'This instance asks for a key: give the SDK an API key (agv_…) made in the Studio, under Your API keys.',
+  invalid_key: 'The key is not valid: it was revoked, it has ended, or it is mistyped.',
+  key_scope: 'This key may not call this: make one with the scope it needs (api, read or mcp).',
+  origin_not_allowed: 'This site is not one the key allows: add it to the sites of the key in the Studio.',
+  publishable_scope: 'A key for a web page only talks to the agent, team or workflow it was made for.',
+  permission_denied: "The role of the key's owner does not allow this.",
+  people_only: 'Only a person signed in to the Studio does this, never a key.',
+  space_not_visible: "This is in a space the key's owner is not in.",
+  edition_feature: 'The edition of this instance does not include this.',
+  edition_limit: 'The edition of this instance allows no more of this.',
+  too_many_starts: 'Too many conversations started from this site: try again in a minute.',
+};
+
+/** The words for a refusal of the instance, by its code; undefined for a code it does not know. */
+export function apiRefusalMessage(code?: string): string | undefined {
+  return code ? refusalMessages[code] : undefined;
+}
+
+/**
+ * What kind of answer a failed call got: the key (401: none, or not valid), the rights (403), nothing there (404), too many
+ * calls (429), the server (5xx), or anything else.
+ */
+export type ApiFailureKind = 'key' | 'forbidden' | 'not_found' | 'rate_limited' | 'server' | 'network' | 'other';
+
 /** Fallback message shown when the backend didn't supply a `userMessage`. */
 export function apiFallbackMessageForStatus(httpStatus?: number): string {
   if (httpStatus == null) return 'Something went wrong. Please try again.';
@@ -54,7 +83,8 @@ export function tryParseApiErrorPayload(value: unknown, httpStatus?: number): Ap
   const source = nestedError ?? map;
   const status = readString(source['status']) ?? readString(map['status']);
   const parsedHttpStatus = readInt(source['httpStatus']) ?? readInt(map['httpStatus']) ?? httpStatus;
-  const code = readString(source['code']) ?? readString(map['code']);
+  // The refusals of the identity of the instance say their code as `error`, beside their `message`.
+  const code = readString(source['code']) ?? readString(map['code']) ?? (nestedError == null ? readString(map['error']) : undefined);
   const userMessage = readString(source['userMessage']) ?? readString(source['message']) ?? readString(map['userMessage']) ?? readString(map['message']);
   const detail = readString(source['detail']) ?? readString(map['detail']);
   const context = asRecord(source['context']) ?? asRecord(map['context']);
@@ -74,7 +104,7 @@ export function isFailurePayload(payload: ApiErrorPayload): boolean {
 }
 
 export function resolvedUserMessage(payload: ApiErrorPayload): string {
-  return payload.userMessage?.trim() || apiFallbackMessageForStatus(payload.httpStatus);
+  return payload.userMessage?.trim() || apiRefusalMessage(payload.code) || apiFallbackMessageForStatus(payload.httpStatus);
 }
 
 /**
@@ -99,6 +129,32 @@ export class ApiException extends Error {
     this.context = payload.context;
     this.raw = payload.raw;
     this.isNetworkError = options.isNetworkError ?? false;
+  }
+
+  /** The permission the instance says was needed, when the refusal is one of rights (`permission_denied`). */
+  get permission(): string | undefined {
+    return readString(this.raw?.['permission']);
+  }
+
+  /** What kind of answer the call got — see {@link ApiFailureKind}. */
+  get kind(): ApiFailureKind {
+    if (this.isNetworkError) return 'network';
+    const status = this.httpStatus ?? 0;
+    if (status === 401) return 'key';
+    if (status === 403) return 'forbidden';
+    if (status === 404) return 'not_found';
+    if (status === 429) return 'rate_limited';
+    if (status >= 500) return 'server';
+    return 'other';
+  }
+
+  /**
+   * Whether trying again would get the same answer: the instance refused (a 4xx other than a timeout or too many calls). A
+   * stream that gets one stops, instead of reconnecting.
+   */
+  get isFinal(): boolean {
+    const status = this.httpStatus ?? 0;
+    return !this.isNetworkError && status >= 400 && status < 500 && status !== 408 && status !== 429;
   }
 
   static fromResponse(body: unknown, httpStatus: number): ApiException {

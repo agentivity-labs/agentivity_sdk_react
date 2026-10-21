@@ -8,6 +8,8 @@ export interface AgentivityProviderProps {
   /** An existing client instance, or a `baseUrl` to construct one from. */
   client?: AgentivityClient;
   baseUrl?: string;
+  /** With `baseUrl`, on an instance that asks to sign in: a key for a web page (`agp_…`). Never a secret key (`agv_…`) in a page. */
+  apiKey?: string;
   children: ReactNode;
 }
 
@@ -22,14 +24,14 @@ export interface AgentivityProviderProps {
  * </AgentivityProvider>
  * ```
  */
-export function AgentivityProvider({ client, baseUrl, children }: AgentivityProviderProps): ReactNode {
+export function AgentivityProvider({ client, baseUrl, apiKey, children }: AgentivityProviderProps): ReactNode {
   const resolved = useMemo(() => {
     if (client) return client;
     if (!baseUrl) {
       throw new Error('AgentivityProvider requires either `client` or `baseUrl`.');
     }
-    return new AgentivityPlatformClient({ baseUrl });
-  }, [client, baseUrl]);
+    return new AgentivityPlatformClient({ baseUrl, apiKey });
+  }, [client, baseUrl, apiKey]);
 
   return <AgentivityContext.Provider value={resolved}>{children}</AgentivityContext.Provider>;
 }

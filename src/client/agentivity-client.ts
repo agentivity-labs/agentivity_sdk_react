@@ -48,7 +48,8 @@ export class AgentivityClient {
   /** Shared Data Table rows — read what a Team's workflow wrote, or write back where the app owns the data. */
   readonly dataTables: DataTablesApi;
 
-  constructor(args: { baseUrl: string; fetchImpl?: typeof fetch }) {
+  /** `apiKey`: on an instance that asks to sign in, the key a person made for this program (`agv_…`) — see {@link AgentivityHttpCore}. */
+  constructor(args: { baseUrl: string; fetchImpl?: typeof fetch; apiKey?: string }) {
     const monitor = new ConnectionMonitor({ probe: () => this.http.probe() });
     this.connection = monitor;
     this.http = new AgentivityHttpCore({ ...args, monitor });

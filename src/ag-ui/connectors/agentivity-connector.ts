@@ -1,3 +1,4 @@
+import { ApiException } from '../../client/api-contract.js';
 import type { AgUiEvent } from '../../protocol/events.js';
 import type { RunAgentInput } from '../../protocol/run-agent-input.js';
 import { AgUiGenericConnector } from './generic-connector.js';
@@ -12,7 +13,7 @@ import { AgUiGenericConnector } from './generic-connector.js';
  *
  * ## Quick start
  * ```ts
- * const connector = new AgentivityConnector({ apiKey: 'ag_live_...', organizationId: 'org_...' });
+ * const connector = new AgentivityConnector({ apiKey: 'agp_...', organizationId: 'org_...' });
  * const unsubscribe = connector.runAgent(
  *   { agentId: 'product-search', input: { threadId: 'thread-1', runId: 'run-1', messages: [buildAgUiMessage('user', { text: 'Find me an espresso machine' })] } },
  *   (event) => generativeController.feedEvent(event),
@@ -108,7 +109,7 @@ export class AgentivityConnector {
     const headers: Record<string, string> = { 'x-api-key': this.apiKey, ...(this.organizationId ? { 'x-organization-id': this.organizationId } : {}) };
     const response = await this.fetchImpl(`${this.baseUrl}/api/v1/runs/${encodeURIComponent(args.runId)}/cancel`, { method: 'POST', headers });
     if (!response.ok) {
-      throw new Error(`AgentivityConnector.cancel: POST /api/v1/runs/${args.runId}/cancel failed with status ${response.status}`);
+      throw ApiException.fromResponse(await response.json().catch(() => undefined), response.status);
     }
   }
 }
