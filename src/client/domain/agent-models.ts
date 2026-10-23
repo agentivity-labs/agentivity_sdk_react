@@ -26,6 +26,8 @@ export interface CatalogBrowseItem {
   updatedAt?: Date;
   role?: string;
   folderId?: string;
+  /** Its tags, as the library keeps them (in lower case): "solution" marks what a person launches. */
+  tags: string[];
 }
 
 export function isAgentBrowseItem(item: CatalogBrowseItem): boolean {
@@ -49,6 +51,7 @@ export function parseCatalogBrowseItem(json: Record<string, unknown>): CatalogBr
     updatedAt: parseDateTime(json['updatedAt']),
     role: nullableTrimmedString(json['role']),
     folderId: nullableTrimmedString(json['folderId']),
+    tags: Array.isArray(json['tags']) ? (json['tags'] as unknown[]).map((t) => String(t).trim()).filter((t) => t.length > 0) : [],
   };
 }
 

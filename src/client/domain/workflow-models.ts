@@ -18,6 +18,33 @@ export interface WorkflowEntity {
   metadata: Record<string, unknown>;
   createdAt?: Date;
   updatedAt?: Date;
+  /**
+   * What this workflow gives to whoever calls it (a step of another workflow, a team), next to its answer: each output,
+   * its name and where its value is taken from. The output named "output" is its answer.
+   */
+  outputs: WorkflowOutput[];
+}
+
+/**
+ * An output a workflow declares: what it gives under `name` to whoever calls it. `value` says where it is taken from, as
+ * any input of a step says it (`{{step.field}}`, or a text that holds some). The output named "output" is its answer.
+ */
+export interface WorkflowOutput {
+  name: string;
+  value: string;
+  description?: string;
+}
+
+/** The name of the answer of a workflow among its outputs. */
+export const WORKFLOW_ANSWER_OUTPUT = 'output';
+
+export function parseWorkflowOutput(json: Record<string, unknown>): WorkflowOutput {
+  const description = typeof json['description'] === 'string' ? json['description'].trim() : undefined;
+  return {
+    name: (typeof json['name'] === 'string' ? json['name'] : '').trim(),
+    value: typeof json['value'] === 'string' ? json['value'] : '',
+    ...(description ? { description } : {}),
+  };
 }
 
 function parseDateTime(value: unknown): Date | undefined {
@@ -36,5 +63,10 @@ export function parseWorkflowEntity(json: Record<string, unknown>, fallbackId?: 
     metadata: json['metadata'] && typeof json['metadata'] === 'object' ? (json['metadata'] as Record<string, unknown>) : {},
     createdAt: parseDateTime(json['createdAt']),
     updatedAt: parseDateTime(json['updatedAt']),
+    outputs: Array.isArray(json['outputs'])
+      ? (json['outputs'] as unknown[])
+          .filter((entry): entry is Record<string, unknown> => entry !== null && typeof entry === 'object')
+          .map(parseWorkflowOutput)
+      : [],
   };
 }
