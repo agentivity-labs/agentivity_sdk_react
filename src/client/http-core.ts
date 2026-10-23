@@ -42,13 +42,16 @@ export class AgentivityHttpCore {
   readonly fetchImpl: typeof fetch;
   /** Told whenever a request gets no answer (the server cannot be reached) and whenever one does. */
   readonly monitor?: ConnectionMonitor;
+  /** How long a read waits, in all, for a hosted workspace that starts again (see {@link waitBeforeAskingAgain}). */
+  private readonly startWaitMs: number;
 
   /**
    * `apiKey`: the key a person made for this program, on an instance that asks to sign in (`agv_…`); sent with every request as
    * `Authorization: Bearer`. Never put a secret key in a web page: a page uses a key for a web page (`agp_…`), or none.
    */
-  constructor(args: { baseUrl: string; fetchImpl?: typeof fetch; monitor?: ConnectionMonitor; apiKey?: string }) {
+  constructor(args: { baseUrl: string; fetchImpl?: typeof fetch; monitor?: ConnectionMonitor; apiKey?: string; workspaceStartWaitMs?: number }) {
     this.baseUrl = normalizeBaseUrl(args.baseUrl);
+    this.startWaitMs = args.workspaceStartWaitMs ?? WORKSPACE_START_WAIT_MS;
     const fetchImpl = args.fetchImpl ?? globalThis.fetch.bind(globalThis);
     const apiKey = args.apiKey?.trim();
     this.fetchImpl = apiKey ? withKey(fetchImpl, apiKey) : fetchImpl;
@@ -103,12 +106,21 @@ export class AgentivityHttpCore {
     }
 
     let response: Response;
-    try {
-      response = await this.fetchImpl(url, { method, headers, body: payload, signal: options?.signal });
-    } catch (error) {
-      // Cancelled on purpose (a component unmounted): not a connection problem.
-      if (!(error instanceof DOMException && error.name === 'AbortError')) this.monitor?.httpFailed(error instanceof Error ? error.message : String(error));
-      throw ApiException.fromNetworkError(error);
+    // A hosted workspace sleeps when nobody uses it, and starts again at the next call: a read is asked again while it starts
+    // (the gateway says so with 502, 503 or 504), as long as it says to wait, for a minute at most. A write is never sent twice.
+    const startedAt = Date.now();
+    for (;;) {
+      try {
+        response = await this.fetchImpl(url, { method, headers, body: payload, signal: options?.signal });
+      } catch (error) {
+        // Cancelled on purpose (a component unmounted): not a connection problem.
+        if (!(error instanceof DOMException && error.name === 'AbortError')) this.monitor?.httpFailed(error instanceof Error ? error.message : String(error));
+        throw ApiException.fromNetworkError(error);
+      }
+      const wait = waitBeforeAskingAgain(method, response, Date.now() - startedAt, this.startWaitMs);
+      if (wait === null || options?.signal?.aborted) break;
+      this.monitor?.httpFailed('The workspace is starting');
+      await new Promise<void>((resolve) => setTimeout(resolve, wait));
     }
     // A gateway answering for a server that is down (502/503/504) is the same as no answer; anything else proves the server is there.
     if (response.status === 502 || response.status === 503 || response.status === 504) this.monitor?.httpFailed(`The server answered ${response.status} (${response.statusText || 'unavailable'})`);
@@ -178,4 +190,19 @@ export class AgentivityHttpCore {
     if (data['success'] === true) return;
     throw new Error(`${operation} did not report success.`);
   }
+}
+
+/** How long a read waits for a workspace that starts, in all. */
+export const WORKSPACE_START_WAIT_MS = 60_000;
+
+/**
+ * How long to wait before asking again (a read only, while the gateway says the workspace is not there yet), or null to take the
+ * answer as it is. The wait is what `Retry-After` says (3 s when it says nothing), never past {@link WORKSPACE_START_WAIT_MS}.
+ */
+export function waitBeforeAskingAgain(method: string, response: Response, waitedMs: number, mostMs = WORKSPACE_START_WAIT_MS): number | null {
+  if (method !== 'GET' && method !== 'HEAD') return null;
+  if (response.status !== 502 && response.status !== 503 && response.status !== 504) return null;
+  const said = Number(response.headers.get('retry-after'));
+  const wait = Number.isFinite(said) && said > 0 ? Math.min(said, 10) * 1000 : 3_000;
+  return waitedMs + wait > mostMs ? null : wait;
 }

@@ -48,8 +48,11 @@ export class AgentivityClient {
   /** Shared Data Table rows — read what a Team's workflow wrote, or write back where the app owns the data. */
   readonly dataTables: DataTablesApi;
 
-  /** `apiKey`: on an instance that asks to sign in, the key a person made for this program (`agv_…`) — see {@link AgentivityHttpCore}. */
-  constructor(args: { baseUrl: string; fetchImpl?: typeof fetch; apiKey?: string }) {
+  /**
+   * `apiKey`: on an instance that asks to sign in, the key a person made for this program (`agv_…`) — see {@link AgentivityHttpCore}.
+   * `workspaceStartWaitMs`: how long a read waits for a hosted workspace that wakes up (a minute unless said).
+   */
+  constructor(args: { baseUrl: string; fetchImpl?: typeof fetch; apiKey?: string; workspaceStartWaitMs?: number }) {
     const monitor = new ConnectionMonitor({ probe: () => this.http.probe() });
     this.connection = monitor;
     this.http = new AgentivityHttpCore({ ...args, monitor });

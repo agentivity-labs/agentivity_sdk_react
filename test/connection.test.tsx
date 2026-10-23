@@ -102,11 +102,37 @@ describe('the transport reports to the monitor', () => {
 
   it('a gateway error (502/503/504) counts as unreachable', async () => {
     const fetchImpl = vi.fn(async () => new Response('', { status: 503, statusText: 'Service Unavailable' }));
-    const client = new AgentivityClient({ baseUrl: 'https://api.example.com', fetchImpl: fetchImpl as unknown as typeof fetch });
+    // No wait for a workspace that wakes up: a server that stays at 503 is out of reach.
+    const client = new AgentivityClient({ baseUrl: 'https://api.example.com', fetchImpl: fetchImpl as unknown as typeof fetch, workspaceStartWaitMs: 0 });
 
     await client.runs.fetchExecutionStatuses('e1');
     expect(client.connection.getSnapshot().status).toBe('offline');
     expect(client.connection.getSnapshot().reason).toContain('503');
+  });
+});
+
+describe('a hosted workspace that sleeps', () => {
+  it('a read is asked again while it wakes up, and comes back', async () => {
+    let calls = 0;
+    const fetchImpl = vi.fn(async () =>
+      ++calls < 3 ? new Response('', { status: 502, headers: { 'retry-after': '1' } }) : new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } }),
+    );
+    const client = new AgentivityClient({ baseUrl: 'https://api.example.com', fetchImpl: fetchImpl as unknown as typeof fetch, workspaceStartWaitMs: 10_000 });
+
+    const read = client.http.get('/api/v1/workflows');
+    await vi.advanceTimersByTimeAsync(2_500);
+    await read;
+
+    expect(fetchImpl.mock.calls.filter(([url]) => String(url).includes('/workflows'))).toHaveLength(3);
+    expect(client.connection.getSnapshot().status).toBe('online');
+  });
+
+  it('a write is never sent twice', async () => {
+    const fetchImpl = vi.fn(async () => new Response('', { status: 502 }));
+    const client = new AgentivityClient({ baseUrl: 'https://api.example.com', fetchImpl: fetchImpl as unknown as typeof fetch });
+
+    await expect(client.http.post('/api/v1/executions', { entityId: 'w1' })).rejects.toBeDefined();
+    expect(fetchImpl.mock.calls.filter(([url]) => String(url).includes('/executions'))).toHaveLength(1);
   });
 });
 
