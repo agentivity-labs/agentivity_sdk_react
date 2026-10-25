@@ -297,6 +297,8 @@ export function TeamGraph({ controller, members, hubMemberId, topology: topology
     const avatar = resolveAvatar(member, memberAvatarFor(member, colorOf(member), resolveMemberAvatar));
     // A member wears its group's color (or the app's own) on the hexagon's border and on its icon.
     const accent = avatar.color;
+    // A status (or the selection) takes over the border itself — one line around the member, never two.
+    const border = accent && status === undefined && selectedMemberId !== member.memberEntityId ? { stroke: accent } : undefined;
     const hexRadius = radius * 1.15;
     const glyphSize = radius * 1.05;
     const colorStyle = accent ? { color: accent } : undefined;
@@ -319,11 +321,11 @@ export function TeamGraph({ controller, members, hubMemberId, topology: topology
               <polygon points={hexPoints(hexRadius)} />
             </clipPath>
             <image href={avatar.imageUrl} x={-hexRadius} y={-hexRadius} width={hexRadius * 2} height={hexRadius * 2} clipPath={`url(#${clipId})`} preserveAspectRatio="xMidYMid slice" />
-            <polygon className="ag-team-graph__hex ag-team-graph__hex--outline" points={hexPoints(hexRadius)} style={accent ? { stroke: accent } : undefined} />
+            <polygon className="ag-team-graph__hex ag-team-graph__hex--outline" points={hexPoints(hexRadius)} style={border} />
           </>
         ) : (
           <>
-            <polygon className="ag-team-graph__hex" points={hexPoints(hexRadius)} style={accent ? { stroke: accent } : undefined} />
+            <polygon className="ag-team-graph__hex" points={hexPoints(hexRadius)} style={border} />
             {!avatar.emoji && avatar.icon ? (
               <Icon icon={avatar.icon} x={-glyphSize / 2} y={-glyphSize / 2} size={glyphSize} className="ag-team-graph__glyph" style={colorStyle} fallback={initials} />
             ) : (
@@ -331,7 +333,8 @@ export function TeamGraph({ controller, members, hubMemberId, topology: topology
             )}
           </>
         )}
-        <polygon className="ag-team-graph__ring" points={hexPoints(hexRadius + 3.5)} fill="none" />
+        {/* The member at work breathes: a ring around it grows and fades, and comes back (as in Team Studio). */}
+        <polygon className="ag-team-graph__ring" points={hexPoints(hexRadius + 5)} fill="none" style={{ ['--ag-ring-grow' as string]: ((hexRadius + 9) / (hexRadius + 5)).toFixed(3) }} />
         {order !== undefined && (
           <g className="ag-team-graph__order" transform={`translate(${(-hexRadius * 0.9).toFixed(1)} ${(-hexRadius * 0.95).toFixed(1)})`} style={colorStyle}>
             <circle r={6.2} />

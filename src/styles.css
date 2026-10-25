@@ -493,10 +493,6 @@
   opacity: 0.5;
 }
 
-.ag-team-graph__node[data-status='working'] {
-  animation: ag-team-blink 2.6s ease-in-out infinite;
-}
-
 @keyframes ag-team-blink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.55; }
@@ -703,34 +699,52 @@
 .ag-team-graph__ring {
   stroke: transparent;
   stroke-width: 2.5;
+  stroke-linejoin: round;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* A status wears the hexagon's own border; the member at work also breathes, a ring growing and fading around it. */
+.ag-team-graph__node[data-status='working'] .ag-team-graph__hex {
+  stroke: var(--ag-team-working, #f1633b);
 }
 
 .ag-team-graph__node[data-status='working'] .ag-team-graph__ring {
   stroke: var(--ag-team-working, #f1633b);
+  animation: ag-team-breathe 1.2s ease-in-out infinite alternate;
 }
 
-.ag-team-graph__node[data-status='waiting'] .ag-team-graph__ring {
+@keyframes ag-team-breathe {
+  from { transform: scale(1); stroke-opacity: 0.9; }
+  to { transform: scale(var(--ag-ring-grow, 1.12)); stroke-opacity: 0.3; }
+}
+
+.ag-team-graph__node[data-status='waiting'] .ag-team-graph__hex {
   stroke: var(--ag-team-waiting, #e3a94f);
 }
 
-.ag-team-graph__node[data-status='done'] .ag-team-graph__ring {
+.ag-team-graph__node[data-status='done'] .ag-team-graph__hex {
   stroke: var(--ag-team-done, #10b981);
 }
 
-.ag-team-graph__node[data-status='failed'] .ag-team-graph__ring {
+.ag-team-graph__node[data-status='failed'] .ag-team-graph__hex {
   stroke: var(--ag-team-failed, #dc2626);
 }
 
-/* A member that can be selected says so; the selected one wears a ring and its name in the accent color. A status ring wins
-   over the selection ring: the selected member at work keeps its status color. */
+/* A member that can be selected says so; the selected one wears its border and its name in the accent color. A status wins
+   over the selection: the selected member at work keeps its status color. */
 .ag-team-graph__node[data-selectable='true'] {
   cursor: pointer;
   outline: none;
 }
 
-.ag-team-graph__node[data-selected='true'][data-status='idle'] .ag-team-graph__ring,
-.ag-team-graph__node[data-selectable='true']:focus-visible .ag-team-graph__ring {
+.ag-team-graph__node[data-selected='true'][data-status='idle'] .ag-team-graph__hex {
   stroke: var(--ag-graph-selected, #2563eb);
+}
+
+/* The keyboard's focus shows over the member's own color (set on the border itself). */
+.ag-team-graph__node[data-selectable='true']:focus-visible .ag-team-graph__hex {
+  stroke: var(--ag-graph-selected, #2563eb) !important;
 }
 
 .ag-team-graph__node[data-selected='true'] .ag-team-graph__label {
@@ -759,7 +773,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .ag-team-roster__member[data-status='working'] .ag-team-roster__avatar,
-  .ag-team-graph__node[data-status='working'],
+  .ag-team-graph__node[data-status='working'] .ag-team-graph__ring,
   .ag-team-graph__center[data-status='working'] .ag-team-graph__center-bubble,
   .ag-team-graph__edge[data-status='working'] {
     animation: none;
