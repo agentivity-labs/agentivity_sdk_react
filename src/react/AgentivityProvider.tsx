@@ -1,6 +1,7 @@
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { AgentivityClient } from '../client/agentivity-client.js';
 import { AgentivityPlatformClient } from '../client/platform-client.js';
+import { WaitNotice, type WaitTexts } from '../chat/components/WaitNotice.js';
 
 const AgentivityContext = createContext<AgentivityClient | undefined>(undefined);
 
@@ -10,6 +11,11 @@ export interface AgentivityProviderProps {
   baseUrl?: string;
   /** With `baseUrl`, on an instance that asks to sign in: a key for a web page (`agp_…`). Never a secret key (`agv_…`) in a page. */
   apiKey?: string;
+  /**
+   * "Just a moment…" floating at the top while a call waits (`WaitNotice`): the first calls to a hosted workspace that wakes up take
+   * most of a minute. On unless `false`; its words, where it floats and what "Try again" does can be given.
+   */
+  waitNotice?: false | { texts?: Partial<WaitTexts>; position?: 'top' | 'bottom'; onRetry?: () => void };
   children: ReactNode;
 }
 
@@ -24,7 +30,7 @@ export interface AgentivityProviderProps {
  * </AgentivityProvider>
  * ```
  */
-export function AgentivityProvider({ client, baseUrl, apiKey, children }: AgentivityProviderProps): ReactNode {
+export function AgentivityProvider({ client, baseUrl, apiKey, waitNotice, children }: AgentivityProviderProps): ReactNode {
   const resolved = useMemo(() => {
     if (client) return client;
     if (!baseUrl) {
@@ -33,7 +39,17 @@ export function AgentivityProvider({ client, baseUrl, apiKey, children }: Agenti
     return new AgentivityPlatformClient({ baseUrl, apiKey });
   }, [client, baseUrl, apiKey]);
 
-  return <AgentivityContext.Provider value={resolved}>{children}</AgentivityContext.Provider>;
+  const notice = waitNotice === false ? undefined : (waitNotice ?? {});
+  return (
+    <AgentivityContext.Provider value={resolved}>
+      {children}
+      {notice && (
+        <div className={`ag-wait-overlay__float ag-wait-overlay__float--${notice.position ?? 'top'}`}>
+          <WaitNotice waiting={resolved.waiting} texts={notice.texts} onRetry={notice.onRetry} />
+        </div>
+      )}
+    </AgentivityContext.Provider>
+  );
 }
 
 /** Like {@link useAgentivityClient}, but `undefined` outside a provider — for widgets that can render without a backend and only need it for one feature. */

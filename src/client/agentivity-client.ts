@@ -8,6 +8,7 @@ import { ConversationsApi } from './api/conversations-api.js';
 import { AgenticFoldersApi } from './api/agentic-folders-api.js';
 import { DataTablesApi } from './api/datatables-api.js';
 import { ConnectionMonitor } from './connection-monitor.js';
+import type { SlowCalls } from './slow-calls.js';
 
 /**
  * Lightweight Agentivity client for building applications on top of an
@@ -30,6 +31,11 @@ export class AgentivityClient {
 
   /** Whether the server can be reached, and when the next attempt is — what `ChatConnectionNotice` shows. */
   readonly connection: ConnectionMonitor;
+  /**
+   * Since when a call waits for its answer — what `WaitNotice` shows: a hosted workspace that wakes up takes most of a minute to
+   * answer its first calls.
+   */
+  readonly waiting: SlowCalls;
 
   /** Entity discovery: list and browse agents, teams, and workflows. */
   readonly entities: EntitiesApi;
@@ -50,12 +56,13 @@ export class AgentivityClient {
 
   /**
    * `apiKey`: on an instance that asks to sign in, the key a person made for this program (`agv_…`) — see {@link AgentivityHttpCore}.
-   * `workspaceStartWaitMs`: how long a read waits for a hosted workspace that wakes up (a minute unless said).
+   * `workspaceStartWaitMs`: how long a read waits for a hosted workspace that wakes up (two minutes unless said).
    */
   constructor(args: { baseUrl: string; fetchImpl?: typeof fetch; apiKey?: string; workspaceStartWaitMs?: number }) {
     const monitor = new ConnectionMonitor({ probe: () => this.http.probe() });
     this.connection = monitor;
     this.http = new AgentivityHttpCore({ ...args, monitor });
+    this.waiting = this.http.slow;
     this.entities = new EntitiesApi(this.http);
     this.icons = new IconsApi(this.http);
     this.runs = new RunsApi(this.http);

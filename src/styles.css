@@ -69,6 +69,106 @@
 }
 
 /* The server cannot be reached: said plainly, with the countdown to the next attempt. */
+/* "Just a moment…" while a call waits (WaitNotice): a card that floats, a ring that turns, words that change if it lasts. */
+.ag-wait {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  max-width: 420px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: var(--ag-surface, #fff);
+  color: var(--ag-text, inherit);
+  box-shadow: 0 6px 24px rgba(15, 23, 42, 0.14);
+  font-size: 13px;
+  line-height: 1.4;
+  animation: ag-wait-in 250ms ease-out;
+}
+
+.ag-wait__ring {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2.5px solid var(--ag-wait-track, rgba(15, 23, 42, 0.12));
+  border-top-color: var(--ag-primary, #2563eb);
+  animation: ag-wait-turn 900ms linear infinite;
+}
+
+.ag-wait__body {
+  min-width: 0;
+}
+
+.ag-wait__title {
+  font-weight: 600;
+}
+
+.ag-wait__detail {
+  opacity: 0.72;
+  font-size: 12px;
+  animation: ag-wait-in 300ms ease-out;
+}
+
+.ag-wait__retry {
+  flex: none;
+  border: none;
+  background: none;
+  color: var(--ag-primary, #2563eb);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ag-wait-overlay {
+  position: relative;
+}
+
+.ag-wait-overlay__float {
+  position: fixed;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  padding: 16px;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.ag-wait-overlay__float > * {
+  pointer-events: auto;
+}
+
+.ag-wait-overlay__float--top {
+  top: 0;
+}
+
+.ag-wait-overlay__float--bottom {
+  bottom: 0;
+}
+
+@keyframes ag-wait-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ag-wait-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ag-wait,
+  .ag-wait__detail {
+    animation: none;
+  }
+  .ag-wait__ring {
+    animation-duration: 2.4s;
+  }
+}
+
 .ag-chat-connection {
   display: flex;
   align-items: center;

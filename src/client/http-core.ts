@@ -1,5 +1,6 @@
 import { ApiException, throwIfApiFailurePayload } from './api-contract.js';
 import type { ConnectionMonitor } from './connection-monitor.js';
+import { SlowCalls } from './slow-calls.js';
 
 const API_V1 = '/api/v1';
 
@@ -44,6 +45,8 @@ export class AgentivityHttpCore {
   readonly monitor?: ConnectionMonitor;
   /** How long a read waits, in all, for a hosted workspace that starts again (see {@link waitBeforeAskingAgain}). */
   private readonly startWaitMs: number;
+  /** Since when a call waits for its answer (see {@link SlowCalls}): what an app shows as "Just a moment…". */
+  readonly slow = new SlowCalls();
 
   /**
    * `apiKey`: the key a person made for this program, on an instance that asks to sign in (`agv_…`); sent with every request as
@@ -92,7 +95,11 @@ export class AgentivityHttpCore {
     return (await this.send<T>(method, path, body, options)).data;
   }
 
-  private async send<T>(method: string, path: string, body?: unknown, options?: RequestOptions): Promise<{ data: T; headers: Headers }> {
+  private send<T>(method: string, path: string, body?: unknown, options?: RequestOptions): Promise<{ data: T; headers: Headers }> {
+    return this.slow.follow(() => this.sendNow<T>(method, path, body, options));
+  }
+
+  private async sendNow<T>(method: string, path: string, body?: unknown, options?: RequestOptions): Promise<{ data: T; headers: Headers }> {
     const url = this.resolveUrl(path, options?.query);
     const headers: Record<string, string> = { Accept: 'application/json', ...options?.headers };
     let payload: BodyInit | undefined;
@@ -107,7 +114,7 @@ export class AgentivityHttpCore {
 
     let response: Response;
     // A hosted workspace sleeps when nobody uses it, and starts again at the next call: a read is asked again while it starts
-    // (the gateway says so with 502, 503 or 504), as long as it says to wait, for a minute at most. A write is never sent twice.
+    // (the gateway says so with 502, 503 or 504), as long as it says to wait, for two minutes at most. A write is never sent twice.
     const startedAt = Date.now();
     for (;;) {
       try {
@@ -192,8 +199,8 @@ export class AgentivityHttpCore {
   }
 }
 
-/** How long a read waits for a workspace that starts, in all. */
-export const WORKSPACE_START_WAIT_MS = 60_000;
+/** How long a read waits for a workspace that starts, in all: as long as its gateway holds a call for it. */
+export const WORKSPACE_START_WAIT_MS = 120_000;
 
 /**
  * How long to wait before asking again (a read only, while the gateway says the workspace is not there yet), or null to take the
