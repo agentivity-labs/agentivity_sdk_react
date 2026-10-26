@@ -12,8 +12,8 @@ export function ConfirmCard({ props }: ChartProps) {
   const title = typeof props['title'] === 'string' ? props['title'] : 'Confirmation';
   const message = typeof props['message'] === 'string' ? props['message'] : '';
   const context = typeof props['context'] === 'string' ? props['context'] : undefined;
-  const confirmLabel = typeof props['confirmLabel'] === 'string' ? props['confirmLabel'] : 'Confirmer';
-  const cancelLabel = typeof props['cancelLabel'] === 'string' ? props['cancelLabel'] : 'Annuler';
+  const confirmLabel = typeof props['confirmLabel'] === 'string' ? props['confirmLabel'] : 'Confirm';
+  const cancelLabel = typeof props['cancelLabel'] === 'string' ? props['cancelLabel'] : 'Cancel';
   const onSubmit = typeof props['__onSubmit'] === 'function' ? (props['__onSubmit'] as (response: string) => void) : undefined;
 
   const [choice, setChoice] = useState<string | undefined>(undefined);

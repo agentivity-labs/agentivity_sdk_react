@@ -2,12 +2,12 @@ import { useState } from 'react';
 import { ArtifactCard } from '../ArtifactCard.js';
 import type { ChartProps } from '../charts/BarChart.js';
 
-const MONTHS_FR = ['jan', 'fév', 'mar', 'avr', 'mai', 'jun', 'jul', 'aoû', 'sep', 'oct', 'nov', 'déc'];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 function fmt(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return `${d.getDate()} ${MONTHS_FR[d.getMonth()]} ${d.getFullYear()}`;
+  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 }
 
 /**
@@ -16,13 +16,13 @@ function fmt(iso: string): string {
  * (zero extra dependency, familiar OS-native UI).
  *
  * Agent props: `{ title, question?, mode?: 'single'|'range', minDate?, maxDate?, submitLabel? }`.
- * Calls `props.__onSubmit` with e.g. `"Date : 15 mars 2025"` or `"Période : 10 mars 2025 → 20 mars 2025"`.
+ * Calls `props.__onSubmit` with e.g. `"Date: 15 Mar 2025"` or `"Period: 10 Mar 2025 → 20 Mar 2025"`.
  */
 export function DatePickerCard({ props }: ChartProps) {
   const title = typeof props['title'] === 'string' ? props['title'] : 'Date';
   const question = typeof props['question'] === 'string' ? props['question'] : undefined;
   const mode = props['mode'] === 'range' ? 'range' : 'single';
-  const submitLabel = typeof props['submitLabel'] === 'string' ? props['submitLabel'] : 'Confirmer';
+  const submitLabel = typeof props['submitLabel'] === 'string' ? props['submitLabel'] : 'Confirm';
   const minDate = typeof props['minDate'] === 'string' ? props['minDate'] : undefined;
   const maxDate = typeof props['maxDate'] === 'string' ? props['maxDate'] : undefined;
   const onSubmit = typeof props['__onSubmit'] === 'function' ? (props['__onSubmit'] as (response: string) => void) : undefined;
@@ -33,7 +33,7 @@ export function DatePickerCard({ props }: ChartProps) {
 
   function submit() {
     if (!onSubmit || submitted || !start) return;
-    const response = mode === 'range' && end ? `Période : ${fmt(start)} → ${fmt(end)}` : `Date : ${fmt(start)}`;
+    const response = mode === 'range' && end ? `Period: ${fmt(start)} → ${fmt(end)}` : `Date: ${fmt(start)}`;
     setSubmitted(true);
     onSubmit(response);
   }
@@ -54,7 +54,7 @@ export function DatePickerCard({ props }: ChartProps) {
   } as const;
 
   return (
-    <ArtifactCard title={title} type={mode === 'range' ? 'Période' : 'Date'}>
+    <ArtifactCard title={title} type={mode === 'range' ? 'Period' : 'Date'}>
       {question && <p style={{ fontSize: 13, margin: '0 0 12px' }}>{question}</p>}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <input type="date" value={start} min={minDate} max={maxDate} disabled={submitted} onChange={(e) => setStart(e.target.value)} style={inputStyle} />

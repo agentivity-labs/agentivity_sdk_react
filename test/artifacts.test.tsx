@@ -50,8 +50,8 @@ describe('artifact widgets smoke test', () => {
     const onSubmit = vi.fn();
     render(<ChoiceCard props={{ title: 'Pick', options: [{ id: 'a', label: 'Alpha' }, { id: 'b', label: 'Beta' }], __onSubmit: onSubmit }} />);
     fireEvent.click(screen.getByText('Alpha'));
-    fireEvent.click(screen.getByText('Confirmer'));
-    expect(onSubmit).toHaveBeenCalledWith('Choix : Alpha');
+    fireEvent.click(screen.getByText('Confirm'));
+    expect(onSubmit).toHaveBeenCalledWith('Choice: Alpha');
   });
 
   it('buildArtifactsRegistry contains all 22 built-in types', () => {

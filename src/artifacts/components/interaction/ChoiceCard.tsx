@@ -19,17 +19,17 @@ function asOptions(raw: unknown): Option[] {
 
 /**
  * Single or multi-select choice widget — port of `AgChoiceCard`. Calls
- * `props.__onSubmit` with selected label(s): single → `"Choix : Gaming"`,
- * multiple → `"Choix : Gaming, Professionnel"`.
+ * `props.__onSubmit` with selected label(s): single → `"Choice: Gaming"`,
+ * multiple → `"Choice: Gaming, Professional"`.
  *
  * Agent props: `{ title, question?, multiple?, options: [{ id, label, description?, imageUrl? }], submitLabel? }`.
  */
 export function ChoiceCard({ props }: ChartProps) {
   const options = asOptions(props['options']);
   const multiple = props['multiple'] === true;
-  const title = typeof props['title'] === 'string' ? props['title'] : 'Choix';
+  const title = typeof props['title'] === 'string' ? props['title'] : 'Choice';
   const question = typeof props['question'] === 'string' ? props['question'] : undefined;
-  const submitLabel = typeof props['submitLabel'] === 'string' ? props['submitLabel'] : 'Confirmer';
+  const submitLabel = typeof props['submitLabel'] === 'string' ? props['submitLabel'] : 'Confirm';
   const onSubmit = typeof props['__onSubmit'] === 'function' ? (props['__onSubmit'] as (response: string) => void) : undefined;
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -52,7 +52,7 @@ export function ChoiceCard({ props }: ChartProps) {
     if (!onSubmit || submitted || selected.size === 0) return;
     const labels = [...selected].map((id) => options.find((o) => o.id === id)?.label ?? id).join(', ');
     setSubmitted(true);
-    onSubmit(`Choix : ${labels}`);
+    onSubmit(`Choice: ${labels}`);
   }
 
   return (

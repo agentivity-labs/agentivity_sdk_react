@@ -52,14 +52,14 @@ const SECTION_IMAGE_SIZE = 120;
  * its facts and an optional badge and link. `imageUrl` on the card itself is a banner above all sections.
  */
 export function SummaryCard({ props }: ChartProps) {
-  const title = typeof props['title'] === 'string' ? props['title'] : 'Récapitulatif';
+  const title = typeof props['title'] === 'string' ? props['title'] : 'Summary';
   const note = typeof props['note'] === 'string' ? props['note'] : undefined;
   const sections = asSections(props['sections']);
   const bannerUrl = safeImageUrl(props['imageUrl']);
   const bannerAlt = typeof props['imageAlt'] === 'string' ? props['imageAlt'] : title;
 
   return (
-    <ArtifactCard title={title} type="Récap">
+    <ArtifactCard title={title} type="Summary">
       {bannerUrl && <ArtifactImage src={bannerUrl} alt={bannerAlt} aspectRatio="16 / 7" fit="cover" style={{ marginBottom: 12 }} />}
       {sections.map((section, i) => (
         <div key={i} style={{ marginTop: i > 0 ? 12 : 0 }}>

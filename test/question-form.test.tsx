@@ -16,7 +16,7 @@ describe('QuestionForm', () => {
     const input = document.querySelector('input[type="date"]') as HTMLInputElement;
     expect(input).toBeTruthy();
     fireEvent.change(input, { target: { value: '2027-07-01' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Envoyer' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
 
     expect(onSubmit).toHaveBeenCalledWith('• Departure date → 2027-07-01');
   });
@@ -28,7 +28,7 @@ describe('QuestionForm', () => {
     const input = document.querySelector('input[type="number"]') as HTMLInputElement;
     expect(input).toBeTruthy();
     fireEvent.change(input, { target: { value: '17' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Envoyer' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
 
     expect(onSubmit).toHaveBeenCalledWith("• Son's age → 17");
   });
@@ -39,7 +39,7 @@ describe('QuestionForm', () => {
 
     expect(document.querySelector('input')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'No' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Envoyer' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
 
     expect(onSubmit).toHaveBeenCalledWith('• Need a rental car? → No');
   });
@@ -51,7 +51,7 @@ describe('QuestionForm', () => {
     const input = document.querySelector('input[type="text"]') as HTMLInputElement;
     expect(input).toBeTruthy();
     fireEvent.change(input, { target: { value: 'EUR' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Envoyer' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
 
     expect(onSubmit).toHaveBeenCalledWith('• X → EUR');
   });
@@ -77,7 +77,7 @@ describe('QuestionForm', () => {
     fireEvent.change(document.querySelector('input[type="date"]')!, { target: { value: '2027-07-01' } });
     fireEvent.change(document.querySelector('input[type="number"]')!, { target: { value: '2' } });
     fireEvent.click(screen.getByRole('button', { name: 'Yes' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Envoyer' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
 
     expect(onSubmit).toHaveBeenCalledWith(['• Destination → Barcelona', '• Departure date → 2027-07-01', '• Travelers → 2', '• Traveling with kids? → Yes'].join('\n'));
   });

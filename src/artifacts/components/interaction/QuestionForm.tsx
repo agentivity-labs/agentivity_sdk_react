@@ -45,7 +45,7 @@ function asQuestions(raw: unknown): Question[] {
  */
 export function QuestionForm({ props }: ChartProps) {
   const title = typeof props['title'] === 'string' ? props['title'] : 'Questions';
-  const submitLabel = typeof props['submitLabel'] === 'string' ? props['submitLabel'] : 'Envoyer';
+  const submitLabel = typeof props['submitLabel'] === 'string' ? props['submitLabel'] : 'Send';
   const questions = asQuestions(props['questions']);
   const onSubmit = typeof props['__onSubmit'] === 'function' ? (props['__onSubmit'] as (response: string) => void) : undefined;
 

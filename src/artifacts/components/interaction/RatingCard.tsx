@@ -4,17 +4,17 @@ import type { ChartProps } from '../charts/BarChart.js';
 
 /**
  * Star or scale rating widget — port of `AgRatingCard`. Calls
- * `props.__onSubmit` with e.g. `"Note : 4/5 — Bien"`.
+ * `props.__onSubmit` with e.g. `"Rating: 4/5 — Good"`.
  *
  * Agent props: `{ title, question?, mode?: 'stars'|'scale', max?, labels?, submitLabel? }`.
  */
 export function RatingCard({ props }: ChartProps) {
-  const title = typeof props['title'] === 'string' ? props['title'] : 'Évaluation';
+  const title = typeof props['title'] === 'string' ? props['title'] : 'Rating';
   const question = typeof props['question'] === 'string' ? props['question'] : undefined;
   const mode = props['mode'] === 'scale' ? 'scale' : 'stars';
   const max = typeof props['max'] === 'number' ? props['max'] : 5;
   const labels = Array.isArray(props['labels']) ? (props['labels'] as unknown[]).map(String) : undefined;
-  const submitLabel = typeof props['submitLabel'] === 'string' ? props['submitLabel'] : 'Envoyer';
+  const submitLabel = typeof props['submitLabel'] === 'string' ? props['submitLabel'] : 'Send';
   const onSubmit = typeof props['__onSubmit'] === 'function' ? (props['__onSubmit'] as (response: string) => void) : undefined;
 
   const [selected, setSelected] = useState<number | undefined>(undefined);
@@ -29,7 +29,7 @@ export function RatingCard({ props }: ChartProps) {
     if (!onSubmit || submitted || selected == null) return;
     const label = labels && selected - 1 < labels.length ? ` — ${labels[selected - 1]}` : '';
     setSubmitted(true);
-    onSubmit(`Note : ${selected}/${max}${label}`);
+    onSubmit(`Rating: ${selected}/${max}${label}`);
   }
 
   return (
