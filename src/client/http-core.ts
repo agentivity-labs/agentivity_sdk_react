@@ -126,7 +126,7 @@ export class AgentivityHttpCore {
       }
       const wait = waitBeforeAskingAgain(method, response, Date.now() - startedAt, this.startWaitMs);
       if (wait === null || options?.signal?.aborted) break;
-      this.monitor?.httpFailed('The workspace is starting');
+      // Not "can't reach the server": the workspace is starting, and the call that waits says so (`client.waiting`).
       await new Promise<void>((resolve) => setTimeout(resolve, wait));
     }
     // A gateway answering for a server that is down (502/503/504) is the same as no answer; anything else proves the server is there.

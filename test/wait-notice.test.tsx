@@ -25,6 +25,26 @@ describe('a call that waits', () => {
   });
 });
 
+describe('a workspace that is starting', () => {
+  it('is waited for, not said unreachable', async () => {
+    const answers = [503, 503, 200];
+    const fetchImpl = vi.fn(async () => {
+      const status = answers.shift() ?? 200;
+      return new Response(status === 200 ? '[]' : '', { status, headers: { 'content-type': 'application/json', 'retry-after': '1' } });
+    });
+    const client = new AgentivityClient({ baseUrl: 'https://acme.agentivity.app', fetchImpl });
+    const seen: string[] = [];
+    client.connection.subscribe(() => seen.push(client.connection.getSnapshot().status));
+
+    const call = client.httpCore.get('/api/v1/workflows');
+    await vi.advanceTimersByTimeAsync(3_000);
+    await call;
+
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(seen).not.toContain('offline');
+  });
+});
+
 describe('WaitNotice', () => {
   it('says a moment, then almost there, then longer than usual, and goes', async () => {
     const waiting = new SlowCalls(1_000);
