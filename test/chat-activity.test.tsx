@@ -174,4 +174,21 @@ describe('ChatDiscussion activity', () => {
     // The run is still working: the line stays, back to its plain wording.
     expect(screen.getByText('Thinking…')).toBeInTheDocument();
   });
+
+  it('does not say a member is at work while its question waits for an answer', () => {
+    const controller = new ChatController();
+    render(chat(controller, { showActiveMemberIndicator: true, onHilResponse: () => {} }));
+    act(() => {
+      controller.feedEvent(started);
+      controller.feedEvent({ type: 'STEP_STARTED', stepName: 'analyst-turn', memberEntityId: 'a1', displayName: 'Needs Analyst' });
+    });
+    wait();
+    expect(screen.getByText('Needs Analyst')).toBeInTheDocument();
+
+    // The question reaches the chat while the member's turn is still open (no STEP_FINISHED, no RUN_FINISHED yet).
+    act(() => controller.feedEvent({ type: 'CUSTOM', name: 'CHAT_HIL_GATE_REACHED', value: { requestId: 'gate1', threadId: 't1', question: 'What is your budget?' } }));
+    wait();
+    expect(screen.queryByText('Needs Analyst')).toBeNull();
+    expect(screen.queryByText(/is working on it/)).toBeNull();
+  });
 });

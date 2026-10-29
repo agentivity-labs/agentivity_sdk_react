@@ -38,8 +38,8 @@ export interface ChatDiscussionProps {
   running?: boolean;
   /**
    * Shows a "member at work" indicator (avatar + name + animated dots) above the input
-   * while a Team member is taking its turn (driven by `controller.activeMember`). Off by
-   * default; has no effect for a standalone Agent, which never sets `activeMember`.
+   * while a Team member is taking its turn (driven by `controller.activeMember`), not while a question it asked waits for
+   * its answer. Off by default; has no effect for a standalone Agent, which never sets `activeMember`.
    */
   showActiveMemberIndicator?: boolean;
   /**
@@ -222,7 +222,8 @@ export function ChatDiscussion({
 
       {runError && <ChatRunError error={runError} onDismiss={() => controller.dismissRunError()} />}
 
-      {showActiveMemberIndicator && activeMember ? (
+      {/* A member that asked a question and waits for its answer is not at work: it says so again once the answer is on its way. */}
+      {showActiveMemberIndicator && activeMember && (!isHilActive || submittingHil) ? (
         <ChatActiveMemberIndicator member={activeMember} resolveMemberAvatar={resolveMemberAvatar} />
       ) : (
         showActivityIndicator && (
