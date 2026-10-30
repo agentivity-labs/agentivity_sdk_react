@@ -143,7 +143,7 @@ export function QuestionForm({ props }: ChartProps) {
         <div key={q.id} style={{ marginBottom: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
             <span style={{ fontSize: 12, fontWeight: 500 }}>{q.label}</span>
-            {!q.required && <span style={{ fontSize: 10, opacity: 0.45 }}>Optionnel</span>}
+            {!q.required && <span style={{ fontSize: 10, opacity: 0.45 }}>Optional</span>}
           </div>
           {field(q, i === questions.length - 1)}
           {q.hint && q.type !== 'text' && q.type !== 'number' && <p style={{ fontSize: 11, opacity: 0.55, margin: '4px 0 0' }}>{q.hint}</p>}

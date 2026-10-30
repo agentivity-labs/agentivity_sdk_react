@@ -73,6 +73,7 @@ describe('QuestionForm', () => {
       />,
     );
 
+    expect(screen.getByText('Optional')).toBeTruthy();
     fireEvent.change(document.querySelector('input[type="text"]')!, { target: { value: 'Barcelona' } });
     fireEvent.change(document.querySelector('input[type="date"]')!, { target: { value: '2027-07-01' } });
     fireEvent.change(document.querySelector('input[type="number"]')!, { target: { value: '2' } });
