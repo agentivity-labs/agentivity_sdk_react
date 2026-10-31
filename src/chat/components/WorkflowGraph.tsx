@@ -133,7 +133,9 @@ export function WorkflowGraph({ controller, structure, nodeColor, statuses: stat
       const own = placed.filter((p) => p.own);
       if (own.length === 0) return [];
       const zone = zoneShape(own.map((p) => p.at), placed.filter((p) => !p.own).flatMap((p) => memberObstacles(p.at, false, NODE_RADIUS)));
-      const at = { x: Math.min(...own.map((p) => p.at.x)) - NODE_RADIUS, y: Math.max(Math.min(...own.map((p) => p.at.y)) - NODE_RADIUS - 8, 8) };
+      // The name sits just above the first step of the group, however far the others go.
+      const first = own.reduce((a, b) => (b.at.x < a.at.x ? b : a)).at;
+      const at = { x: first.x - NODE_RADIUS, y: Math.max(first.y - NODE_RADIUS - 8, 8) };
       return [{ key, color, zone, at, name: own[0]!.name!.trim().toUpperCase() }];
     });
   }, [structure, layout]);
