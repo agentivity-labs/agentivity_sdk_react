@@ -47,6 +47,8 @@ export interface TeamStructure {
   connections: TeamConnectionDefinition[];
   /** Colors the team editor chose for groups (`#RRGGBB`), by group key (trimmed, lower-case). A group without one gets the default color. */
   groupColors: Record<string, string>;
+  /** The name of the palette chosen for this team: its groups' colors unless they have their own, and the colors of its states. */
+  palette?: string;
 }
 
 export function parseTeamMemberPosition(json: Record<string, unknown>): TeamMemberPosition {
@@ -84,6 +86,7 @@ export function parseTeamStructure(json: Record<string, unknown>): TeamStructure
       types: Array.isArray(c['types']) ? c['types'].map((t) => String(t).toLowerCase()) : [],
     })),
     groupColors: parseGroupColors(json['groupColors']),
+    palette: text(json['palette']),
   };
 }
 

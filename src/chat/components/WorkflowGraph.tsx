@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type RefObject } from 'react';
 import type { ChatController, WorkflowStepStatus } from '../chat-controller.js';
 import type { WorkflowGraphNode, WorkflowGraphStructure, WorkflowNodeKind } from '../../client/domain/workflow-graph-models.js';
 import { edgeKey, flowCurve, layoutWorkflowGraph, loopCurve, type Point } from './workflow-graph-layout.js';
 import { usePick } from './use-pick.js';
 import { Icon } from '../../icons/Icon.js';
 import { materialIcon } from '../../icons/icon-ref.js';
+import { graphPaletteVars, useGraphPalette, type GraphPaletteRef } from '../../palettes/graph-palettes.js';
 
 export interface WorkflowGraphProps {
   /**
@@ -14,6 +15,8 @@ export interface WorkflowGraphProps {
   controller?: ChatController;
   /** The workflow's flow structure — from `client.entities.fetchWorkflowGraph(workflowId)`. */
   structure: WorkflowGraphStructure;
+  /** The colors of the graph: a palette or the name of one. By default the one the app imposes (`GraphPaletteProvider`), or the default palette. */
+  palette?: GraphPaletteRef | null;
   /**
    * Status of each node, keyed by node id — from `useExecutionNodeStatuses(executionId)` (the execution's own
    * status API: right on a fresh run, after a reconnect and when reopening an old execution). When omitted the
@@ -107,7 +110,8 @@ const NO_STEP_STATUSES: ReadonlyMap<string, WorkflowStepStatus> = new Map();
  * "Recenter" button hands control back. Optional and independent of `ChatDiscussion`. Structural
  * markup with `ag-workflow-graph*` classes (default look in `styles.css`).
  */
-export function WorkflowGraph({ controller, structure, statuses: statusesProp, camera = 'follow', interactive = true, onNodeSelect, selectedNodeId, className }: WorkflowGraphProps) {
+export function WorkflowGraph({ controller, structure, palette: paletteProp, statuses: statusesProp, camera = 'follow', interactive = true, onNodeSelect, selectedNodeId, className }: WorkflowGraphProps) {
+  const palette = useGraphPalette(paletteProp);
   const pick = usePick(onNodeSelect ? (id) => {
     const picked = structure.nodes.find((n) => n.id === id);
     if (picked) onNodeSelect(picked);
@@ -176,6 +180,7 @@ export function WorkflowGraph({ controller, structure, statuses: statusesProp, c
       <svg
         ref={svgRef}
         className={cx('ag-workflow-graph', className)}
+        style={graphPaletteVars(palette) as CSSProperties}
         data-interactive={interactive ? undefined : 'false'}
         data-run={statuses.size > 0 ? 'active' : 'none'}
         viewBox={`0 0 ${Math.max(layout.width, 1).toFixed(1)} ${Math.max(layout.height, 1).toFixed(1)}`}
