@@ -16,7 +16,6 @@ import { TemplateGraph } from '../graph/TemplateGraph.js';
  * marketplace `{ data }` envelope is taken off), `autoplay`, `interactive`, `step-ms`, `theme` (`light` or `dark`), `camera`
  * (`fit`, the default, keeps the whole workflow in view; `follow` opens on the start node at a readable scale and, with `autoplay`,
  * glides from one active node to the next — the frame then has the height the page gives the element, or 16:9).
- * `palette` names a palette of the SDK (`modern-red-blue-mauve`…), instead of the one the team or the workflow chose.
  * Property: `source` (the JSON itself, wins over `src`). Events: `agentivity-graph-ready`, `agentivity-graph-error`
  * (`detail` is the message). The drawing fills the width of the element and sets its own height. The colors follow the
  * `--ag-*` custom properties of the page (they inherit into the element); `theme` only sets a light or a dark default.
@@ -51,7 +50,7 @@ const HOST_STYLES = `
 const asBoolean = (value: string | null) => value !== null && value !== 'false';
 
 export class AgentivityGraphElement extends HTMLElement {
-  static observedAttributes = ['src', 'autoplay', 'interactive', 'step-ms', 'theme', 'camera', 'palette'];
+  static observedAttributes = ['src', 'autoplay', 'interactive', 'step-ms', 'theme', 'camera'];
 
   #root?: Root;
   #source?: unknown;
@@ -134,7 +133,6 @@ export class AgentivityGraphElement extends HTMLElement {
     root.render(
       <TemplateGraph
         source={source}
-        palette={this.getAttribute('palette')}
         autoplay={asBoolean(this.getAttribute('autoplay'))}
         interactive={asBoolean(this.getAttribute('interactive'))}
         stepMs={stepMs > 0 ? stepMs : undefined}

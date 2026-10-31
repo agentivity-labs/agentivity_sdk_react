@@ -133,8 +133,6 @@ export { MemberAvatar, resolveMemberAvatar } from './chat/components/member-avat
 export type { AgUiChatMember, AgUiMemberAvatar } from './chat/components/member-avatar.js';
 export { TeamRoster } from './chat/components/TeamRoster.js';
 export type { TeamRosterProps } from './chat/components/TeamRoster.js';
-export { GRAPH_PALETTES, DEFAULT_GRAPH_PALETTE, DEFAULT_GRAPH_PALETTE_ID, GraphPaletteProvider, definePalette, graphPaletteById, graphPaletteVars, resolveGraphPalette, useGraphPalette } from './palettes/graph-palettes.js';
-export type { GraphPalette, GraphPaletteChanges, GraphPaletteRef, GraphPaletteSuits } from './palettes/graph-palettes.js';
 export { TeamGraph } from './chat/components/TeamGraph.js';
 export type { TeamGraphProps } from './chat/components/TeamGraph.js';
 export type { AgUiTeamMember } from './chat/components/team-member.js';

@@ -1,9 +1,8 @@
-import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type RefObject } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from 'react';
 import type { ChatController, TeamMemberStatus } from '../chat-controller.js';
 import { resolveMemberAvatar as resolveAvatar, type AgUiChatMember, type AgUiMemberAvatar } from './member-avatar.js';
 import { Icon } from '../../icons/Icon.js';
 import { materialIcon } from '../../icons/icon-ref.js';
-import { graphPaletteVars, useGraphPalette, type GraphPaletteRef } from '../../palettes/graph-palettes.js';
 import { groupColorOverrides, orderByGroup, teamGroupColors, teamGroupKey } from './team-groups.js';
 import { memberAvatarFor, teamMemberShortName, teamMemberStatusText, type AgUiTeamMember, type AgUiTeamTopology } from './team-member.js';
 import { usePick } from './use-pick.js';
@@ -26,8 +25,6 @@ export interface TeamGraphProps {
    * constellation.
    */
   topology?: AgUiTeamTopology;
-  /** The colors of the graph: a palette or the name of one. By default the one the app imposes (`GraphPaletteProvider`), or the default palette. A group's own color wins over the palette's. */
-  palette?: GraphPaletteRef | null;
   /** Maps a member's identity to an avatar (image/emoji/color). Falls back to initials+color when omitted. */
   resolveMemberAvatar?: (member: AgUiChatMember) => AgUiMemberAvatar | undefined;
   /** Show the members in their group colors while nothing is running (a still picture of the team). By default they are switched off and light up as the run needs them. */
@@ -216,7 +213,7 @@ const NO_MEMBER_STATUSES: ReadonlyMap<string, TeamMemberStatus> = new Map();
  * link). Driven by {@link ChatController.memberStatuses}; optional and independent of `ChatDiscussion`. Structural markup
  * with `ag-team-graph*` classes (default look in `styles.css`).
  */
-export function TeamGraph({ controller, members, hubMemberId, topology: topologyProp, palette: paletteProp, resolveMemberAvatar, restingColors, statuses: statusesProp, interactive = true, zoneLook = 'organic', onMemberSelect, selectedMemberId, className }: TeamGraphProps) {
+export function TeamGraph({ controller, members, hubMemberId, topology: topologyProp, resolveMemberAvatar, restingColors, statuses: statusesProp, interactive = true, zoneLook = 'organic', onMemberSelect, selectedMemberId, className }: TeamGraphProps) {
   const meltId = `ag-zone-melt-${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
   const melt = zoneLook === 'organic' ? meltId : undefined;
   const pick = usePick(onMemberSelect ? (id) => {
@@ -242,8 +239,7 @@ export function TeamGraph({ controller, members, hubMemberId, topology: topology
   const svgRef = useRef<SVGSVGElement>(null);
   const [view, fitView] = usePanZoom(svgRef, interactive);
 
-  const palette = useGraphPalette(paletteProp);
-  const groupColors = useMemo(() => teamGroupColors(members.map((m) => m.group), groupColorOverrides(members), palette.groups), [members, palette]);
+  const groupColors = useMemo(() => teamGroupColors(members.map((m) => m.group), groupColorOverrides(members)), [members]);
 
   const { hub, branches } = useMemo(() => {
     const hubMember = hubMemberId ? members.find((m) => m.memberEntityId === hubMemberId) : undefined;
@@ -255,8 +251,7 @@ export function TeamGraph({ controller, members, hubMemberId, topology: topology
   }, [members, hubMemberId, frame]);
 
   const hubGroupKey = hub ? teamGroupKey(hub.group) : undefined;
-  // A member outside every group (a manager) takes the strong color of the palette.
-  const colorOf = (member: AgUiTeamMember) => groupColors.get(teamGroupKey(member.group) ?? '') ?? palette.steps.end;
+  const colorOf = (member: AgUiTeamMember) => groupColors.get(teamGroupKey(member.group) ?? '');
 
   // Every topology but the manager-led one has its own layout; the manager-led one (and a team of unknown shape) keeps the constellation.
   const topology = topologyProp ?? members.find((m) => m.topology)?.topology;
@@ -427,7 +422,7 @@ export function TeamGraph({ controller, members, hubMemberId, topology: topology
 
   return (
     <div ref={fit} className="ag-team-graph-fit">
-    <svg ref={svgRef} className={cx('ag-team-graph', className)} style={graphPaletteVars(palette) as CSSProperties} data-interactive={interactive ? undefined : 'false'} data-topology={scene ? topology?.kind : 'constellation'} data-run={statuses.size > 0 ? 'active' : 'none'} data-resting={restingColors ? 'true' : undefined} viewBox={`0 0 ${frame.width.toFixed(1)} ${frame.height.toFixed(1)}`} role={onMemberSelect ? 'group' : 'img'} aria-label="Team" {...pick.root}>
+    <svg ref={svgRef} className={cx('ag-team-graph', className)} data-interactive={interactive ? undefined : 'false'} data-topology={scene ? topology?.kind : 'constellation'} data-run={statuses.size > 0 ? 'active' : 'none'} data-resting={restingColors ? 'true' : undefined} viewBox={`0 0 ${frame.width.toFixed(1)} ${frame.height.toFixed(1)}`} role={onMemberSelect ? 'group' : 'img'} aria-label="Team" {...pick.root}>
       {melt && <ZoneMelt id={melt} frame={frame} />}
       <g className="ag-team-graph__viewport" transform={`translate(${view.x.toFixed(2)} ${view.y.toFixed(2)}) scale(${view.k.toFixed(4)})`}>
       {scene ? sceneBody(scene) : <>

@@ -5,7 +5,6 @@ import { WorkflowGraph } from '../chat/components/WorkflowGraph.js';
 import { teamHubMemberId, teamMembersFromStructure, teamTopology } from '../chat/components/team-member.js';
 import { parseTeamStructure, type TeamStructure } from '../client/domain/team-definition-models.js';
 import { parseWorkflowGraph, type WorkflowGraphStructure } from '../client/domain/workflow-graph-models.js';
-import type { GraphPaletteRef } from '../palettes/graph-palettes.js';
 import { resolveRenderable, type Renderable } from './renderable.js';
 
 export interface TemplateGraphProps {
@@ -14,8 +13,6 @@ export interface TemplateGraphProps {
    * object or its JSON text (see {@link resolveRenderable}). A Template is drawn from its root.
    */
   source: unknown;
-  /** The colors of the graph: a palette or the name of one. By default the palette the team, the agent or the workflow chose, or the default one. */
-  palette?: GraphPaletteRef | null;
   /** Maps a member to an image or emoji of the app's own; by default the icon and group color the team editor chose. */
   resolveMemberAvatar?: TeamGraphProps['resolveMemberAvatar'];
   /**
@@ -69,14 +66,6 @@ function teamMembersOf(renderable: Renderable) {
   return { members: teamMembersFromStructure(named), hubMemberId: teamHubMemberId(named), topology: teamTopology(named) };
 }
 
-/** The palette a team, an agent or a workflow chose: a team keeps it itself, an agent or a workflow in its metadata. */
-function ownPalette(entity: Record<string, unknown>): string | undefined {
-  const graph = entity['graph'];
-  const metadata = (graph && typeof graph === 'object' ? (graph as Record<string, unknown>)['metadata'] : undefined) ?? entity['metadata'];
-  const named = entity['palette'] ?? (metadata && typeof metadata === 'object' ? (metadata as Record<string, unknown>)['palette'] : undefined);
-  return typeof named === 'string' && named.trim() ? named.trim() : undefined;
-}
-
 /** The order in which a run walks a workflow: from its start, following the edges; whatever is left comes last. */
 export function workflowWalk(structure: WorkflowGraphStructure): string[] {
   const order: string[] = [];
@@ -125,20 +114,20 @@ function usePlayback<S extends 'working' | 'done'>(ids: readonly string[], enabl
   }, [active, step, key]);
 }
 
-function TeamView({ renderable, palette, resolveMemberAvatar, autoplay, stepMs, interactive, onSelect, selectedId, zoneLook, className }: { renderable: Renderable } & Omit<TemplateGraphProps, 'source'>) {
+function TeamView({ renderable, resolveMemberAvatar, autoplay, stepMs, interactive, onSelect, selectedId, zoneLook, className }: { renderable: Renderable } & Omit<TemplateGraphProps, 'source'>) {
   const { members, hubMemberId, topology } = useMemo(() => teamMembersOf(renderable), [renderable]);
   const playing = usePlayback<Extract<TeamMemberStatus, 'working' | 'done'>>(
     members.map((m) => m.memberEntityId),
     !!autoplay,
     stepMs ?? 1400,
   );
-  return <TeamGraph palette={palette} members={members} hubMemberId={hubMemberId} topology={topology} resolveMemberAvatar={resolveMemberAvatar} restingColors={!playing} statuses={playing} interactive={interactive} zoneLook={zoneLook} selectedMemberId={selectedId} onMemberSelect={onSelect ? (m) => onSelect({ kind: 'member', id: m.memberEntityId, displayName: m.displayName }) : undefined} className={className} />;
+  return <TeamGraph members={members} hubMemberId={hubMemberId} topology={topology} resolveMemberAvatar={resolveMemberAvatar} restingColors={!playing} statuses={playing} interactive={interactive} zoneLook={zoneLook} selectedMemberId={selectedId} onMemberSelect={onSelect ? (m) => onSelect({ kind: 'member', id: m.memberEntityId, displayName: m.displayName }) : undefined} className={className} />;
 }
 
-function WorkflowView({ structure, palette, autoplay, stepMs, interactive, camera, onSelect, selectedId, className }: { structure: WorkflowGraphStructure } & Omit<TemplateGraphProps, 'source' | 'resolveMemberAvatar'>) {
+function WorkflowView({ structure, autoplay, stepMs, interactive, camera, onSelect, selectedId, className }: { structure: WorkflowGraphStructure } & Omit<TemplateGraphProps, 'source' | 'resolveMemberAvatar'>) {
   const walk = useMemo(() => workflowWalk(structure), [structure]);
   const playing = usePlayback<Extract<WorkflowStepStatus, 'working' | 'done'>>(walk, !!autoplay, stepMs ?? 1100);
-  return <WorkflowGraph palette={palette} structure={structure} statuses={playing} camera={camera ?? 'fit'} interactive={interactive} selectedNodeId={selectedId} onNodeSelect={onSelect ? (n) => onSelect({ kind: 'node', id: n.id, displayName: n.displayName }) : undefined} className={className} />;
+  return <WorkflowGraph structure={structure} statuses={playing} camera={camera ?? 'fit'} interactive={interactive} selectedNodeId={selectedId} onNodeSelect={onSelect ? (n) => onSelect({ kind: 'node', id: n.id, displayName: n.displayName }) : undefined} className={className} />;
 }
 
 /**
@@ -146,7 +135,7 @@ function WorkflowView({ structure, palette, autoplay, stepMs, interactive, camer
  * agent) as its flow. It needs no run and no chat — it is the picture for a catalog, a preview or a documentation page.
  * An unreadable source draws a short message instead of throwing.
  */
-export function TemplateGraph({ source, palette, resolveMemberAvatar, autoplay, stepMs, interactive = false, camera = 'fit', onSelect, selectedId, zoneLook, className }: TemplateGraphProps) {
+export function TemplateGraph({ source, resolveMemberAvatar, autoplay, stepMs, interactive = false, camera = 'fit', onSelect, selectedId, zoneLook, className }: TemplateGraphProps) {
   const resolved = useMemo(() => {
     try {
       return { renderable: resolveRenderable(source) };
@@ -169,10 +158,8 @@ export function TemplateGraph({ source, palette, resolveMemberAvatar, autoplay, 
       </div>
     );
   }
-
-  const chosen = palette ?? ownPalette(resolved.renderable.entity);
   if (resolved.renderable.kind === 'team') {
-    return <TeamView palette={chosen} renderable={resolved.renderable} resolveMemberAvatar={resolveMemberAvatar} autoplay={autoplay} stepMs={stepMs} interactive={interactive} onSelect={onSelect} selectedId={selectedId} zoneLook={zoneLook} className={className} />;
+    return <TeamView renderable={resolved.renderable} resolveMemberAvatar={resolveMemberAvatar} autoplay={autoplay} stepMs={stepMs} interactive={interactive} onSelect={onSelect} selectedId={selectedId} zoneLook={zoneLook} className={className} />;
   }
   if (!structure || structure.nodes.length === 0) {
     return (
@@ -181,5 +168,5 @@ export function TemplateGraph({ source, palette, resolveMemberAvatar, autoplay, 
       </div>
     );
   }
-  return <WorkflowView palette={chosen} structure={structure} autoplay={autoplay} stepMs={stepMs} interactive={interactive} camera={camera} onSelect={onSelect} selectedId={selectedId} className={className} />;
+  return <WorkflowView structure={structure} autoplay={autoplay} stepMs={stepMs} interactive={interactive} camera={camera} onSelect={onSelect} selectedId={selectedId} className={className} />;
 }

@@ -440,13 +440,14 @@
   --ag-team-node-fill: var(--ag-surface, #fff);
   --ag-team-node-stroke: var(--ag-outline-variant, #c8ccd4);
   --ag-team-muted: var(--ag-outline, #64748b);
-  /* The colors of what a member does come from the palette (GraphPalette.states), never from the theme, which gives the
-     background, the text and the shapes. These are the default palette's: a graph sets them from its own. */
-  --ag-team-working: #2563EB;
-  --ag-team-waiting: #F5A524;
-  --ag-team-failed: #DC2626;
+  /* The member at work wears the accent of the theme: a theme's tertiary is often a red (light, dark, ledger), and a red
+     member reads as one that failed. Waiting for the person is amber in every theme, the color of a light that asks. */
+  --ag-team-working: var(--ag-primary, #2563eb);
+  --ag-team-waiting: #e3a94f;
   --ag-team-idle: var(--ag-outline-variant, #c8ccd4);
-  --ag-team-done: #10B981;
+  /* Not aliased to a theme token: "done" reads as success everywhere, in every theme, the same
+     way a green checkmark does — tying it to an accent color would fight that at-a-glance meaning. */
+  --ag-team-done: #10b981;
 }
 
 /* Team roster: one avatar per member, ringed by live status. Override --ag-team-* to retheme. */
@@ -895,19 +896,19 @@
   --ag-workflow-node-fill: var(--ag-surface-container-low, #f8fafc);
   --ag-workflow-node-stroke: var(--ag-outline-variant, #c8ccd4);
   --ag-workflow-muted: var(--ag-outline, #64748b);
-  /* The colors of a workflow come from the palette (GraphPalette), never from the theme. These are the default palette's: a graph
-     sets them from its own. One color per node kind (what a node DOES), separate from the working/waiting/done ring (what it's
-     currently DOING). */
-  --ag-workflow-working: #2563EB;
-  --ag-workflow-waiting: #F5A524;
-  --ag-workflow-done: #10B981;
-  --ag-workflow-failed: #DC2626;
-  --ag-workflow-start: #E11D3F;
-  --ag-workflow-decision: #2563EB;
-  --ag-workflow-human: #9B6DD6;
-  --ag-workflow-ai: #0F1220;
-  --ag-workflow-action: #9B6DD6;
-  --ag-workflow-end: #0F1220;
+  --ag-workflow-working: var(--ag-primary, #2563eb);
+  --ag-workflow-waiting: #e3a94f;
+  /* Not aliased to a theme token, same reasoning as --ag-team-done: "done" reads as success in
+     every theme, the same way a green checkmark does. */
+  --ag-workflow-done: #10b981;
+  /* One color per node kind — a workflow's own visual grammar (what a node DOES), independent of
+     the working/waiting/done ring (what it's currently DOING). */
+  --ag-workflow-start: #10b981;
+  --ag-workflow-decision: var(--ag-tertiary, #f59e0b);
+  --ag-workflow-human: var(--ag-primary, #2563eb);
+  --ag-workflow-ai: #8b5cf6;
+  --ag-workflow-end: var(--ag-outline, #334155);
+  --ag-workflow-action: var(--ag-outline, #64748b);
 }
 
 .ag-workflow-graph-fit {

@@ -1,12 +1,10 @@
-import { DEFAULT_GRAPH_PALETTE } from '../../palettes/graph-palettes.js';
-
 /**
  * How a Team member's group looks: the color it shares with the other members of the group, and the order that keeps a
  * group together. (The icon a member wears is an {@link IconRef}, drawn by `Icon` — see `src/icons`.)
  */
 
-/** Colors given to groups by default, in the order groups first appear in a team: the default palette's. */
-export const TEAM_GROUP_PALETTE: readonly string[] = DEFAULT_GRAPH_PALETTE.groups;
+/** Colors given to groups, in the order groups first appear in a team. */
+export const TEAM_GROUP_PALETTE: readonly string[] = ['#FF8A5B', '#4FD1C5', '#F6C453', '#A78BFA', '#60A5FA', '#F472B6', '#84CC16', '#FB7185'];
 
 /** The identity of a group — trimmed and case-insensitive, so "Booking" and "booking " are the same group. */
 export function teamGroupKey(group: string | undefined | null): string | undefined {
@@ -15,15 +13,15 @@ export function teamGroupKey(group: string | undefined | null): string | undefin
 }
 
 /**
- * A color for each group of `groups`: the one the team editor chose (`custom`, by group key) or else the palette's
- * (`palette`, by default {@link TEAM_GROUP_PALETTE}), assigned in order of first appearance and cycling through it — deterministic for a given team, and the
+ * A color for each group of `groups`: the one the team editor chose (`custom`, by group key) or else the default, assigned
+ * in order of first appearance and cycling through {@link TEAM_GROUP_PALETTE} — deterministic for a given team, and the
  * same rule in every SDK.
  */
-export function teamGroupColors(groups: Iterable<string | undefined | null>, custom?: ReadonlyMap<string, string>, palette: readonly string[] = TEAM_GROUP_PALETTE): Map<string, string> {
+export function teamGroupColors(groups: Iterable<string | undefined | null>, custom?: ReadonlyMap<string, string>): Map<string, string> {
   const colors = new Map<string, string>();
   for (const group of groups) {
     const key = teamGroupKey(group);
-    if (key && !colors.has(key)) colors.set(key, custom?.get(key) ?? palette[colors.size % palette.length]!);
+    if (key && !colors.has(key)) colors.set(key, custom?.get(key) ?? TEAM_GROUP_PALETTE[colors.size % TEAM_GROUP_PALETTE.length]!);
   }
   return colors;
 }

@@ -6,8 +6,11 @@ const css = readFileSync(resolve(__dirname, '../src/styles.css'), 'utf8');
 const alias = (name: string) => css.match(new RegExp(`^[ \\t]+${name}:[ \\t]*([^;]+);`, 'm'))?.[1].trim();
 
 describe('the colors of a member and a step at work', () => {
-  it('come from the palette, never from the theme', () => {
-    for (const name of ['--ag-team-working', '--ag-workflow-working']) expect(alias(name)).not.toContain('var(');
+  it('follow the accent of the theme, never its tertiary color, a red in several themes that reads as a failure', () => {
+    for (const name of ['--ag-team-working', '--ag-workflow-working']) {
+      expect(alias(name)).toContain('--ag-primary');
+      expect(alias(name)).not.toContain('--ag-tertiary');
+    }
   });
 
   it('keep waiting apart from working', () => {
