@@ -74,14 +74,17 @@ function viewOn(point: Point, k: number, width: number, height: number): View {
   return { k, x: width / 2 - point.x * k, y: height / 2 - point.y * k };
 }
 
-/** One glyph + CSS color-role per node kind — see `--ag-workflow-*` tokens in `styles.css` for how to retheme. */
-const KIND_ICON: Record<WorkflowNodeKind, string> = {
-  start: 'E037', // play_arrow
-  decision: 'E254', // call_split
-  human: 'E0B7', // chat
-  ai: 'E322', // memory
-  end: 'E5CA', // check
-  action: 'E8B8', // settings
+/**
+ * One glyph per node kind. The codes are those of the bundled font, Flutter's MaterialIcons (`material/icons.dart`), not Google's:
+ * the same code is another icon there. Retheme with the `--ag-workflow-*` tokens of `styles.css`.
+ */
+export const KIND_ICON: Record<WorkflowNodeKind, string> = {
+  start: 'E4CB', // play_arrow
+  decision: 'E12D', // call_split
+  human: 'E153', // chat
+  ai: 'E3DB', // memory
+  end: 'E156', // check
+  action: 'E57F', // settings
 };
 
 /** The node the camera should be looking at: whichever is currently working (or, failing that,
