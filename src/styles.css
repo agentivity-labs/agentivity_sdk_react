@@ -724,6 +724,14 @@
   font-weight: 600;
 }
 
+/* The name of a group of steps. */
+.ag-workflow-graph__group {
+  fill: currentColor;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
 /* The zone behind a group: its members' positions thickened into one soft rounded shape. */
 .ag-team-graph__zone {
   fill: currentColor;
@@ -894,18 +902,13 @@
   --ag-workflow-node-fill: var(--ag-surface-container-low, #f8fafc);
   --ag-workflow-node-stroke: var(--ag-outline-variant, #c8ccd4);
   --ag-workflow-muted: var(--ag-outline, #64748b);
-  /* The colors of a workflow are the graph's own, never the theme's. One color per node kind (what a node DOES), separate from the
-     working/waiting/done ring (what it's currently DOING). */
+  /* The colors of a workflow are the graph's own, never the theme's. A step wears the color of its group, or this neutral one: a
+     type of step has no color. The working/waiting/done ring says what it's currently DOING. */
   --ag-workflow-working: #2563EB;
   --ag-workflow-waiting: #F5A524;
   --ag-workflow-done: #10B981;
   --ag-workflow-failed: #DC2626;
-  --ag-workflow-start: #E11D3F;
-  --ag-workflow-decision: #2563EB;
-  --ag-workflow-human: #9B6DD6;
-  --ag-workflow-ai: #0F1220;
-  --ag-workflow-action: #9B6DD6;
-  --ag-workflow-end: #0F1220;
+  --ag-workflow-node: #64748B;
 }
 
 .ag-workflow-graph-fit {
@@ -974,27 +977,7 @@
    color; the one currently running blinks slowly. Same choreography as .ag-team-graph__node. */
 .ag-workflow-graph__node {
   transition: filter 0.4s ease, opacity 0.4s ease;
-  color: var(--ag-workflow-action, #64748b);
-}
-
-.ag-workflow-graph__node[data-kind='start'] {
-  color: var(--ag-workflow-start, #10b981);
-}
-
-.ag-workflow-graph__node[data-kind='decision'] {
-  color: var(--ag-workflow-decision, #f59e0b);
-}
-
-.ag-workflow-graph__node[data-kind='human'] {
-  color: var(--ag-workflow-human, #2563eb);
-}
-
-.ag-workflow-graph__node[data-kind='ai'] {
-  color: var(--ag-workflow-ai, #8b5cf6);
-}
-
-.ag-workflow-graph__node[data-kind='end'] {
-  color: var(--ag-workflow-end, #334155);
+  color: var(--ag-workflow-node, #64748b);
 }
 
 .ag-workflow-graph__node[data-status='idle'] {

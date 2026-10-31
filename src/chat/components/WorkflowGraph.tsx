@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type RefObject } from 'react';
 import type { ChatController, WorkflowStepStatus } from '../chat-controller.js';
 import type { WorkflowGraphNode, WorkflowGraphStructure, WorkflowNodeKind } from '../../client/domain/workflow-graph-models.js';
+import { GroupZone } from './TeamGraph.js';
+import { memberObstacles, zoneShape } from './team-layouts.js';
+import { teamGroupColors, teamGroupKey } from './team-groups.js';
 import { edgeKey, flowCurve, layoutWorkflowGraph, loopCurve, type Point } from './workflow-graph-layout.js';
 import { usePick } from './use-pick.js';
 import { Icon } from '../../icons/Icon.js';
@@ -14,8 +17,8 @@ export interface WorkflowGraphProps {
   controller?: ChatController;
   /** The workflow's flow structure — from `client.entities.fetchWorkflowGraph(workflowId)`. */
   structure: WorkflowGraphStructure;
-  /** The colors this graph wears by type of step, over the default ones. */
-  stepColors?: WorkflowStepColors;
+  /** The color its steps wear when they have no group of their own: that of the agent this graph is the inside of. */
+  nodeColor?: string;
   /**
    * Status of each node, keyed by node id — from `useExecutionNodeStatuses(executionId)` (the execution's own
    * status API: right on a fresh run, after a reconnect and when reopening an old execution). When omitted the
@@ -109,10 +112,7 @@ const NO_STEP_STATUSES: ReadonlyMap<string, WorkflowStepStatus> = new Map();
  * "Recenter" button hands control back. Optional and independent of `ChatDiscussion`. Structural
  * markup with `ag-workflow-graph*` classes (default look in `styles.css`).
  */
-/** A color (`#RRGGBB`) by type of step: start, decision, human, ai, action, end. */
-export type WorkflowStepColors = Record<string, string>;
-
-export function WorkflowGraph({ controller, structure, stepColors, statuses: statusesProp, camera = 'follow', interactive = true, onNodeSelect, selectedNodeId, className }: WorkflowGraphProps) {
+export function WorkflowGraph({ controller, structure, nodeColor, statuses: statusesProp, camera = 'follow', interactive = true, onNodeSelect, selectedNodeId, className }: WorkflowGraphProps) {
   const pick = usePick(onNodeSelect ? (id) => {
     const picked = structure.nodes.find((n) => n.id === id);
     if (picked) onNodeSelect(picked);
@@ -122,6 +122,21 @@ export function WorkflowGraph({ controller, structure, stepColors, statuses: sta
   const fit = useRef<HTMLDivElement>(null);
 
   const layout = useMemo(() => layoutWorkflowGraph(structure), [structure]);
+  // Every group is drawn as in a team: a soft zone behind its steps, in its color, that never passes over the other steps.
+  const groupZones = useMemo(() => {
+    const colors = teamGroupColors(structure.nodes.map((n) => n.group), new Map(Object.entries(structure.groupColors ?? {})));
+    return [...colors].flatMap(([key, color]) => {
+      const placed = structure.nodes.flatMap((n) => {
+        const at = layout.positions.get(n.id);
+        return at ? [{ at, own: teamGroupKey(n.group) === key, name: n.group }] : [];
+      });
+      const own = placed.filter((p) => p.own);
+      if (own.length === 0) return [];
+      const zone = zoneShape(own.map((p) => p.at), placed.filter((p) => !p.own).flatMap((p) => memberObstacles(p.at, false, NODE_RADIUS)));
+      const at = { x: Math.min(...own.map((p) => p.at.x)) - NODE_RADIUS, y: Math.max(Math.min(...own.map((p) => p.at.y)) - NODE_RADIUS - 8, 8) };
+      return [{ key, color, zone, at, name: own[0]!.name!.trim().toUpperCase() }];
+    });
+  }, [structure, layout]);
   const svgRef = useRef<SVGSVGElement>(null);
   const followRef = useRef(true);
   // In `follow` the first image is already the one on the start node (no flash of the whole diagram, no glide at opening).
@@ -152,13 +167,18 @@ export function WorkflowGraph({ controller, structure, stepColors, statuses: sta
 
   const statusOf = (id: string): WorkflowStepStatus | 'idle' => statuses.get(id) ?? 'idle';
 
+  const groupColorOf = (n: WorkflowGraphNode) => {
+    const color = groupZones.find((group) => group.key === teamGroupKey(n.group))?.color;
+    return color ? { color } : undefined;
+  };
+
   const node = (n: WorkflowGraphNode, at: Point) => {
     const status = statusOf(n.id);
     return (
       <g key={n.id} transform={`translate(${at.x} ${at.y})`}>
         {/* Solid backing: the node dims as a whole once a run starts, but the links running under it must never show through. */}
         <circle className="ag-workflow-graph__backing" r={NODE_RADIUS} />
-        <g className="ag-workflow-graph__node" data-kind={n.kind} data-status={status} data-selectable={onNodeSelect ? 'true' : undefined} data-selected={selectedNodeId === n.id ? 'true' : undefined} aria-pressed={onNodeSelect ? selectedNodeId === n.id : undefined} {...pick.target(n.id)}>
+        <g className="ag-workflow-graph__node" style={groupColorOf(n)} data-kind={n.kind} data-status={status} data-selectable={onNodeSelect ? 'true' : undefined} data-selected={selectedNodeId === n.id ? 'true' : undefined} aria-pressed={onNodeSelect ? selectedNodeId === n.id : undefined} {...pick.target(n.id)}>
           <title>{`${n.displayName} — ${statusText(status)}`}</title>
           <circle className="ag-workflow-graph__circle" r={NODE_RADIUS} />
           <Icon icon={materialIcon(KIND_ICON[n.kind])} x={-NODE_RADIUS * 0.55} y={-NODE_RADIUS * 0.55} size={NODE_RADIUS * 1.1} className="ag-workflow-graph__glyph" />
@@ -181,7 +201,7 @@ export function WorkflowGraph({ controller, structure, stepColors, statuses: sta
       <svg
         ref={svgRef}
         className={cx('ag-workflow-graph', className)}
-        style={stepColors ? (Object.fromEntries(Object.entries(stepColors).map(([type, color]) => [`--ag-workflow-${type}`, color])) as CSSProperties) : undefined}
+        style={nodeColor ? ({ '--ag-workflow-node': nodeColor } as CSSProperties) : undefined}
         data-interactive={interactive ? undefined : 'false'}
         data-run={statuses.size > 0 ? 'active' : 'none'}
         viewBox={`0 0 ${Math.max(layout.width, 1).toFixed(1)} ${Math.max(layout.height, 1).toFixed(1)}`}
@@ -193,6 +213,14 @@ export function WorkflowGraph({ controller, structure, stepColors, statuses: sta
           className="ag-workflow-graph__viewport"
           style={{ transform: `translate(${view.x.toFixed(2)}px, ${view.y.toFixed(2)}px) scale(${view.k.toFixed(4)})`, transition: smooth ? 'transform 0.7s cubic-bezier(0.22, 1, 0.36, 1)' : 'none' }}
         >
+          {groupZones.map((group) => (
+            <g key={group.key} style={{ color: group.color }}>
+              <GroupZone zone={group.zone} />
+              <text className="ag-workflow-graph__group" x={group.at.x} y={group.at.y}>
+                {group.name}
+              </text>
+            </g>
+          ))}
           {structure.edges.map((e) => {
             const a = layout.positions.get(e.from);
             const b = layout.positions.get(e.to);

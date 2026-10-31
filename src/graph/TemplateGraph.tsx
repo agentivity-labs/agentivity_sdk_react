@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { TeamMemberStatus, WorkflowStepStatus } from '../chat/chat-controller.js';
 import { TeamGraph, type TeamGraphProps } from '../chat/components/TeamGraph.js';
-import { WorkflowGraph, type WorkflowStepColors } from '../chat/components/WorkflowGraph.js';
+import { WorkflowGraph } from '../chat/components/WorkflowGraph.js';
 import { teamHubMemberId, teamMembersFromStructure, teamTopology } from '../chat/components/team-member.js';
 import { parseTeamStructure, type TeamStructure } from '../client/domain/team-definition-models.js';
 import { parseWorkflowGraph, type WorkflowGraphStructure } from '../client/domain/workflow-graph-models.js';
@@ -66,18 +66,13 @@ function teamMembersOf(renderable: Renderable) {
   return { members: teamMembersFromStructure(named), hubMemberId: teamHubMemberId(named), topology: teamTopology(named) };
 }
 
-const hexOf = (value: unknown) => (typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value.trim()) ? value.trim() : undefined);
 const recordOf = (value: unknown) => (value && typeof value === 'object' ? (value as Record<string, unknown>) : undefined);
 
-/** The colors a graph wears by type of step: those of a workflow, or the color of an agent's group. Both are kept in the metadata. */
-function stepColorsOf(renderable: Renderable): WorkflowStepColors | undefined {
-  if (renderable.kind === 'agent') {
-    const color = hexOf(recordOf(recordOf(renderable.entity['graph'])?.['metadata'])?.['groupColor']);
-    return color ? { start: color, ai: color } : undefined;
-  }
-  const steps = recordOf(recordOf(renderable.entity['metadata'])?.['stepColors']);
-  if (!steps) return undefined;
-  return Object.fromEntries(Object.entries(steps).flatMap(([type, color]) => (hexOf(color) ? [[type, hexOf(color)!]] : [])));
+/** An agent wears the color of its group, kept in the metadata of its graph. */
+function agentColorOf(renderable: Renderable): string | undefined {
+  if (renderable.kind !== 'agent') return undefined;
+  const color = recordOf(recordOf(renderable.entity['graph'])?.['metadata'])?.['groupColor'];
+  return typeof color === 'string' && /^#[0-9a-fA-F]{6}$/.test(color.trim()) ? color.trim() : undefined;
 }
 
 /** The order in which a run walks a workflow: from its start, following the edges; whatever is left comes last. */
@@ -138,10 +133,10 @@ function TeamView({ renderable, resolveMemberAvatar, autoplay, stepMs, interacti
   return <TeamGraph members={members} hubMemberId={hubMemberId} topology={topology} resolveMemberAvatar={resolveMemberAvatar} restingColors={!playing} statuses={playing} interactive={interactive} zoneLook={zoneLook} selectedMemberId={selectedId} onMemberSelect={onSelect ? (m) => onSelect({ kind: 'member', id: m.memberEntityId, displayName: m.displayName }) : undefined} className={className} />;
 }
 
-function WorkflowView({ structure, stepColors, autoplay, stepMs, interactive, camera, onSelect, selectedId, className }: { structure: WorkflowGraphStructure; stepColors?: WorkflowStepColors } & Omit<TemplateGraphProps, 'source' | 'resolveMemberAvatar'>) {
+function WorkflowView({ structure, nodeColor, autoplay, stepMs, interactive, camera, onSelect, selectedId, className }: { structure: WorkflowGraphStructure; nodeColor?: string } & Omit<TemplateGraphProps, 'source' | 'resolveMemberAvatar'>) {
   const walk = useMemo(() => workflowWalk(structure), [structure]);
   const playing = usePlayback<Extract<WorkflowStepStatus, 'working' | 'done'>>(walk, !!autoplay, stepMs ?? 1100);
-  return <WorkflowGraph stepColors={stepColors} structure={structure} statuses={playing} camera={camera ?? 'fit'} interactive={interactive} selectedNodeId={selectedId} onNodeSelect={onSelect ? (n) => onSelect({ kind: 'node', id: n.id, displayName: n.displayName }) : undefined} className={className} />;
+  return <WorkflowGraph nodeColor={nodeColor} structure={structure} statuses={playing} camera={camera ?? 'fit'} interactive={interactive} selectedNodeId={selectedId} onNodeSelect={onSelect ? (n) => onSelect({ kind: 'node', id: n.id, displayName: n.displayName }) : undefined} className={className} />;
 }
 
 /**
@@ -182,5 +177,5 @@ export function TemplateGraph({ source, resolveMemberAvatar, autoplay, stepMs, i
       </div>
     );
   }
-  return <WorkflowView stepColors={stepColorsOf(resolved.renderable)} structure={structure} autoplay={autoplay} stepMs={stepMs} interactive={interactive} camera={camera} onSelect={onSelect} selectedId={selectedId} className={className} />;
+  return <WorkflowView nodeColor={agentColorOf(resolved.renderable)} structure={structure} autoplay={autoplay} stepMs={stepMs} interactive={interactive} camera={camera} onSelect={onSelect} selectedId={selectedId} className={className} />;
 }

@@ -7,23 +7,44 @@ const agent = (metadata?: Record<string, unknown>) => ({
   name: 'A',
   graph: { id: 'g', name: 'G', entryNode: 'ai', metadata, nodes: [{ id: 'ai', nodeType: 'ai.node' }], connections: [] },
 });
-const color = (container: HTMLElement) => container.querySelector<SVGElement>('.ag-workflow-graph')!.style.getPropertyValue('--ag-workflow-start');
+const color = (container: HTMLElement) => container.querySelector<SVGElement>('.ag-workflow-graph')!.style.getPropertyValue('--ag-workflow-node');
 
-describe('the colors of a workflow', () => {
-  const workflow = (metadata?: Record<string, unknown>) => ({ ...agent().graph, metadata });
-
-  it('are worn by its graph, by type of step', () => {
-    const { container } = render(<TemplateGraph source={workflow({ stepColors: { start: '#123456', end: '#654321' } })} />);
-    const style = container.querySelector<SVGElement>('.ag-workflow-graph')!.style;
-
-    expect(style.getPropertyValue('--ag-workflow-start')).toBe('#123456');
-    expect(style.getPropertyValue('--ag-workflow-end')).toBe('#654321');
+describe('the groups of a workflow', () => {
+  const step = (id: string, group?: string) => ({ id, nodeType: 'ai.node', metadata: { displayName: id, ...(group ? { group } : {}) } });
+  const workflow = (metadata?: Record<string, unknown>) => ({
+    id: 'w',
+    name: 'W',
+    entryNode: 'a',
+    metadata,
+    nodes: [step('a', 'Crew'), step('b', 'Crew'), step('c')],
+    connections: [{ from: 'a', to: 'b', fromPort: 'out', toPort: 'in' }, { from: 'b', to: 'c', fromPort: 'out', toPort: 'in' }],
   });
 
-  it('leave out what is not a color', () => {
-    const { container } = render(<TemplateGraph source={workflow({ stepColors: { start: 'red; x' } })} />);
+  it('are drawn behind their steps, under their name', () => {
+    const { container } = render(<TemplateGraph source={workflow()} />);
 
-    expect(color(container)).toBe('');
+    expect(container.querySelectorAll('.ag-team-graph__zone')).toHaveLength(1);
+    expect(container.querySelector('.ag-workflow-graph__group')?.textContent).toBe('CREW');
+  });
+
+  it('wear the color chosen for them', () => {
+    const { container } = render(<TemplateGraph source={workflow({ groupColors: { crew: '#123456' } })} />);
+
+    expect((container.querySelector('.ag-team-graph__zone')!.parentElement as unknown as SVGElement).style.color).toBe('rgb(18, 52, 86)');
+  });
+
+  it('give their color to their steps, and a step without a group has none', () => {
+    const { container } = render(<TemplateGraph source={workflow({ groupColors: { crew: '#123456' } })} />);
+    const nodes = container.querySelectorAll<SVGElement>('.ag-workflow-graph__node');
+
+    expect(nodes[0]!.style.color).toBe('rgb(18, 52, 86)');
+    expect(nodes[2]!.style.color).toBe('');
+  });
+
+  it('leave a workflow without groups as it is', () => {
+    const { container } = render(<TemplateGraph source={{ ...workflow(), nodes: [step('a'), step('b'), step('c')] }} />);
+
+    expect(container.querySelector('.ag-team-graph__zone')).toBeNull();
   });
 });
 

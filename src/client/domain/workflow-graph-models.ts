@@ -16,6 +16,8 @@ export interface WorkflowGraphNode {
   /** The node's actual catalog type (e.g. `ai.llm.prompt`, `core.if`) — `kind` is derived from this. */
   nodeType: string;
   kind: WorkflowNodeKind;
+  /** The group it belongs to, as written. */
+  group?: string;
 }
 
 export interface WorkflowGraphEdge {
@@ -29,6 +31,8 @@ export interface WorkflowGraphStructure {
   nodes: WorkflowGraphNode[];
   edges: WorkflowGraphEdge[];
   entryNodeId?: string;
+  /** The colors chosen for its groups (`#RRGGBB`), by group key. */
+  groupColors?: Record<string, string>;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
@@ -100,8 +104,12 @@ export function parseWorkflowGraph(json: Record<string, unknown>): WorkflowGraph
     // a final branch) reads as "end" — both override the type-derived kind, which only matters
     // for everything in between.
     const kind: WorkflowNodeKind = id === entryNodeId ? 'start' : !hasOutgoing.has(id) ? 'end' : kindFor(nodeType);
-    return { id, displayName, nodeType, kind };
+    const group = metadata && str(metadata, 'group')?.trim();
+    return { id, displayName, nodeType, kind, ...(group ? { group } : {}) };
   });
 
-  return { nodes, edges, entryNodeId };
+  const chosen = asRecord(asRecord(json['metadata'])?.['groupColors']);
+  const groupColors = chosen && Object.fromEntries(Object.entries(chosen).filter((e): e is [string, string] => typeof e[1] === 'string' && /^#[0-9a-fA-F]{6}$/.test(e[1])));
+
+  return { nodes, edges, entryNodeId, ...(groupColors ? { groupColors } : {}) };
 }

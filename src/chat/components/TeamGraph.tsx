@@ -575,7 +575,7 @@ function usePanZoom(svgRef: RefObject<SVGSVGElement | null>, enabled: boolean): 
  * The soft zone behind a group, in the group's color: a disc on each member, a band along each link, and the area between
  * the members when it is free. One shape, faded as a whole (the group's opacity): bands that cross do not darken each other.
  */
-function GroupZone({ zone, organic }: { zone: ZoneShape; organic?: string }) {
+export function GroupZone({ zone, organic }: { zone: ZoneShape; organic?: string }) {
   const at = (p: Point) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`;
   return (
     <g className="ag-team-graph__zone" data-filled={zone.filled ? 'true' : 'false'} data-look={organic ? 'organic' : undefined} filter={organic ? `url(#${organic})` : undefined} aria-hidden="true">
