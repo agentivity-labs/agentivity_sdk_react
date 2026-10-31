@@ -4,7 +4,7 @@
  */
 
 /** Colors given to groups, in the order groups first appear in a team. */
-export const TEAM_GROUP_PALETTE: readonly string[] = ['#FF8A5B', '#4FD1C5', '#F6C453', '#A78BFA', '#60A5FA', '#F472B6', '#84CC16', '#FB7185'];
+export const TEAM_GROUP_PALETTE: readonly string[] = ['#E11D3F', '#2563EB', '#9B6DD6', '#0F1220', '#FF4158', '#5B8DEF'];
 
 /** The identity of a group — trimmed and case-insensitive, so "Booking" and "booking " are the same group. */
 export function teamGroupKey(group: string | undefined | null): string | undefined {
