@@ -97,7 +97,8 @@ export function parseSessionStartedResponse(json: Record<string, unknown>): Sess
     runId,
     executionId: execution.executionId,
     streamId: execution.streamId,
-    streamUrl: streamUrlFor(execution.streamId),
+    // As the platform gives it: a conversation that goes on follows its stream from where the last turn left it.
+    streamUrl: String(json['streamUrl'] ?? '').trim() || streamUrlFor(execution.streamId),
     entityId: execution.entityId,
     entityKind: execution.entityKind,
   };

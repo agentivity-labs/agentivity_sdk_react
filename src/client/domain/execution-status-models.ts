@@ -1,6 +1,6 @@
 /**
- * Live status of a running execution, read from its inspector snapshot —
- * `GET /api/v1/executions/{id}/inspector`. One source for every kind of execution: a workflow's steps
+ * Live status of a running execution, read from its progress —
+ * `GET /api/v1/executions/{id}/progress`, what a customer may read of it, a key for a web page included. One source for every kind of execution: a workflow's steps
  * are its nodes, a team's steps are its members. `WorkflowGraph`, `TeamGraph` and `TeamRoster` all
  * light up from it (their `statuses` prop), so a diagram is right on a fresh run, after a reconnect and
  * when reopening an old execution — unlike stream events, which are not replayed.
@@ -16,6 +16,30 @@ export interface ExecutionStatuses {
   nodes: ReadonlyMap<string, ExecutionStepState>;
   /** Team members that have taken a turn, keyed by `memberEntityId`. */
   members: ReadonlyMap<string, ExecutionStepState>;
+  /** The same members with what each has to show, keyed by `memberEntityId`. */
+  memberSteps: ReadonlyMap<string, ExecutionMemberStep>;
+  /** When the last finished turn of a team ended (ISO 8601), if it has one. */
+  lastStepAt?: string;
+  /** Its last job is finished: the person can go on, close or start another. */
+  jobFinished?: boolean;
+  /** The conversation has been closed. */
+  closed?: boolean;
+}
+
+/** One team member, as far as the execution's progress tells it. */
+export interface ExecutionMemberStep {
+  memberEntityId: string;
+  displayName?: string;
+  /** Absent for a member not reached yet. */
+  state?: ExecutionStepState;
+  /** The manager of a manager-led team: what it writes is for its team or is the answer itself. */
+  isManager?: boolean;
+  /** What it is doing, in a few words for a customer, when the platform says it. */
+  activity?: string;
+  /** What it has done, in a few words for a customer, when the platform says it. */
+  summary?: string;
+  /** Its last result, in full (Markdown). */
+  result?: string;
 }
 
 /** True while the execution can still change (worth polling); false once it has ended. */
@@ -43,19 +67,37 @@ export function parseExecutionStatuses(json: Record<string, unknown>): Execution
   const executionState = typeof json['status'] === 'string' ? json['status'].toLowerCase() : '';
   const nodes = new Map<string, ExecutionStepState>();
   const members = new Map<string, ExecutionStepState>();
+  const memberSteps = new Map<string, ExecutionMemberStep>();
   const steps = Array.isArray(json['steps']) ? (json['steps'] as unknown[]) : [];
   for (const raw of steps) {
     if (!raw || typeof raw !== 'object') continue;
     const step = raw as Record<string, unknown>;
-    const state = stepState(typeof step['status'] === 'string' ? step['status'].toLowerCase() : '');
-    if (!state) continue;
-    // A team step is an agent's turn: the inspector leaves `memberEntityId` null and carries the member's entity id as the step `id`,
+    const status = typeof step['status'] === 'string' ? step['status'].toLowerCase() : '';
+    const state = stepState(status);
+    // A team step is an agent's turn: the platform leaves `memberEntityId` null and carries the member's entity id as the step `id`,
     // marked by `agentTopologyPositionId`. A workflow step has neither.
     const isTeamStep = typeof step['agentTopologyPositionId'] === 'string' && step['agentTopologyPositionId'] !== '';
     const explicit = typeof step['memberEntityId'] === 'string' && step['memberEntityId'] ? step['memberEntityId'] : undefined;
     const memberEntityId = explicit ?? (isTeamStep && typeof step['id'] === 'string' ? step['id'] : undefined);
-    if (memberEntityId) members.set(memberEntityId, state);
-    else if (typeof step['id'] === 'string') nodes.set(step['id'], state);
+    // Every member is listed, those not reached yet too: they have no status to light up, only a line.
+    if (!state && !(memberEntityId && status === 'pending')) continue;
+    if (memberEntityId) {
+      if (state) members.set(memberEntityId, state);
+      memberSteps.set(memberEntityId, { memberEntityId, state, isManager: step['isManager'] === true, displayName: text(step['name']), activity: text(step['activity']), summary: text(step['summary']), result: text((step['outputs'] as Record<string, unknown> | undefined)?.['output']) });
+    } else if (typeof step['id'] === 'string' && state) nodes.set(step['id'], state);
   }
-  return { executionState, nodes, members };
+  return { executionState, nodes, members, memberSteps, lastStepAt: lastOccurredAt(json['callSequence']), jobFinished: json['jobFinished'] === true, closed: json['closed'] === true };
+}
+
+function text(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function lastOccurredAt(calls: unknown): string | undefined {
+  if (!Array.isArray(calls)) return undefined;
+  for (let i = calls.length - 1; i >= 0; i--) {
+    const at = text((calls[i] as Record<string, unknown> | null)?.['occurredAt']);
+    if (at) return at;
+  }
+  return undefined;
 }

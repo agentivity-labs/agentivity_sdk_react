@@ -1,4 +1,5 @@
 import { AgentivityHttpCore } from '../http-core.js';
+import { ApiException } from '../api-contract.js';
 import {
   type ExecutionRecord,
   type HilPendingResponse,
@@ -59,6 +60,11 @@ export class RunsApi {
 
   async cancelExecution(executionId: string): Promise<void> {
     await this.c.post<void>(AgentivityHttpCore.v1(`/executions/${executionId}/cancel`));
+  }
+
+  /** Closes a conversation, on purpose: from then on a message in it is refused (`execution_ended`). */
+  async closeExecution(executionId: string): Promise<void> {
+    await this.c.post<void>(AgentivityHttpCore.v1(`/executions/${executionId}/close`));
   }
 
   async pauseExecution(executionId: string): Promise<void> {
@@ -124,18 +130,19 @@ export class RunsApi {
   }
 
   // ---------------------------------------------------------------------------
-  // Live step statuses — GET /api/v1/executions/{executionId}/inspector
+  // Live step statuses — GET /api/v1/executions/{executionId}/progress
   // The authoritative per-step state (workflow nodes, team members) of any execution: valid on a fresh run,
   // after a reconnect and when reopening an old execution — unlike stream events, which are not replayed.
   // ---------------------------------------------------------------------------
 
-  async fetchExecutionStatuses(executionId: string): Promise<ExecutionStatuses | undefined> {
+  /** `undefined` when it cannot be read now; `null` when this key may not read it (a key for a web page): asking again is pointless. */
+  async fetchExecutionStatuses(executionId: string): Promise<ExecutionStatuses | undefined | null> {
     const normalized = this.c.requireNormalizedId(executionId, 'Execution id');
     try {
-      const data = await this.c.get<Record<string, unknown>>(AgentivityHttpCore.v1(`/executions/${normalized}/inspector`), { dataBody: true });
+      const data = await this.c.get<Record<string, unknown>>(AgentivityHttpCore.v1(`/executions/${normalized}/progress`), { dataBody: true });
       return data ? parseExecutionStatuses(data) : undefined;
-    } catch {
-      return undefined;
+    } catch (error) {
+      return error instanceof ApiException && (error.httpStatus === 401 || error.httpStatus === 403) ? null : undefined;
     }
   }
 

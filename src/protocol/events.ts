@@ -45,6 +45,8 @@ export interface RunStartedEvent extends AgUiEventBase {
 /** A run completed. Check `outcome` for success vs interrupt. */
 export interface RunFinishedEvent extends AgUiEventBase {
   type: 'RUN_FINISHED';
+  /** The job is finished, not only the turn: a chat offers to go on, close or start another. */
+  jobFinished?: boolean;
   threadId?: string;
   runId: string;
   /** `undefined` = legacy success (no outcome field in payload). */
@@ -73,6 +75,8 @@ export interface StepStartedEvent extends AgUiEventBase {
   memberEntityKind?: string;
   /** Human-friendly name for the active member, falls back to `memberEntityId` when unset. */
   displayName?: string;
+  /** What the member is about to do, in a few words for a customer, when its manager said it. */
+  activity?: string;
 }
 
 export interface StepFinishedEvent extends AgUiEventBase {
@@ -390,13 +394,14 @@ export function parseAgUiEvent(json: Record<string, unknown>): AgUiEvent {
         runId: str(json, 'runId'),
         outcome: parseOutcome(json['outcome']),
         result: json['result'],
+        jobFinished: json['jobFinished'] === true,
       };
     case 'RUN_ERROR':
       return { ...base, type: 'RUN_ERROR', message: str(json, 'message'), code: opt(json, 'code') };
 
     // Steps
     case 'STEP_STARTED':
-      return { ...base, type: 'STEP_STARTED', stepName: str(json, 'stepName'), memberEntityId: opt(json, 'memberEntityId'), memberEntityKind: opt(json, 'memberEntityKind'), displayName: opt(json, 'displayName') };
+      return { ...base, type: 'STEP_STARTED', stepName: str(json, 'stepName'), memberEntityId: opt(json, 'memberEntityId'), memberEntityKind: opt(json, 'memberEntityKind'), displayName: opt(json, 'displayName'), activity: opt(json, 'activity') };
     case 'STEP_FINISHED':
       return { ...base, type: 'STEP_FINISHED', stepName: str(json, 'stepName'), memberEntityId: opt(json, 'memberEntityId'), memberEntityKind: opt(json, 'memberEntityKind'), displayName: opt(json, 'displayName'), error: opt(json, 'error') };
 

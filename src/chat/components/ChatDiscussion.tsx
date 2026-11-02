@@ -5,19 +5,35 @@ import { isDisplayWidget, type AgUiWidgetRegistry } from '../../artifacts/widget
 import { ChatMessageBubble } from './ChatMessageBubble.js';
 import { ChatInput } from './ChatInput.js';
 import { ChatActiveMemberIndicator } from './ChatActiveMemberIndicator.js';
+import { ChatTeamProgress, type ChatTeamProgressTexts } from './ChatTeamProgress.js';
 import { ChatActivityIndicator, type ChatActivity, type ChatActivityStyle } from './ChatActivityIndicator.js';
 import { ChatRunError } from './ChatRunError.js';
+import { ChatConversationEnd, type ChatConversationEndTexts } from './ChatConversationEnd.js';
 import { ChatConnectionNotice } from './ChatConnectionNotice.js';
 import { useOptionalAgentivityClient } from '../../react/AgentivityProvider.js';
+import { useTeamProgress } from '../../react/useTeamProgress.js';
+import { isTeamProgressLive } from '../team-progress.js';
 import type { AgUiChatMember, AgUiMemberAvatar } from './member-avatar.js';
+import type { AgUiTeamMember } from './team-member.js';
 
 export interface ChatDiscussionProps {
   controller: ChatController;
   /** Pin to a specific thread. Omit to auto-select the default (or first) thread. */
   threadId?: string;
   widgetRegistry?: AgUiWidgetRegistry;
-  /** Called when the user sends a plain (non-HIL) message. */
-  onSend: (text: string, attachments: File[]) => void;
+  /**
+   * Called when the user sends a plain (non-HIL) message. Let a failed `startExecution` reject: a conversation that has ended then
+   * shows what comes next, and a conversation still at work keeps the text in the input. An app that catches it itself gives the
+   * failure to `controller.noteSendRefused`.
+   */
+  onSend: (text: string, attachments: File[]) => void | Promise<void>;
+  /**
+   * The person starts another conversation, from zero: the app forgets its execution, so that the next message starts a new one, and
+   * clears the controller. Providing it is what offers the choice, once a job is finished or a conversation has ended.
+   */
+  onNewConversation?: () => void;
+  /** Other words, or another language, for what is offered at the end of a job or of a conversation. */
+  conversationEndTexts?: Partial<ChatConversationEndTexts>;
   /**
    * Called when the user submits a response to a pending HIL gate. `source` is
    * `'text'` when typed in the input, or `'widget'` when submitted through an
@@ -60,6 +76,18 @@ export interface ChatDiscussionProps {
   /** Draws the activity indicator instead of the default one. */
   renderActivity?: (activity: ChatActivity) => ReactNode;
   /**
+   * Shows the team at work in the thread ({@link ChatTeamProgress}): one line per agent while an execution goes on, collapsed to one
+   * line when it ends. On by default and needs nothing from the app; it appears once a team really works together, never for a
+   * standalone Agent or a manager answering alone. While it shows, it stands in for the two indicators above.
+   */
+  showTeamProgress?: boolean;
+  /** The execution {@link showTeamProgress} follows. Left out, the one the stream tells about; give it for an execution reopened from its history. */
+  executionId?: string;
+  /** The team's members, for a key that cannot read the team (a key for a web page). Left out, they are read from the execution's team. */
+  teamMembers?: AgUiTeamMember[];
+  /** Other words, or another language, for {@link showTeamProgress}. */
+  teamProgressTexts?: Partial<ChatTeamProgressTexts>;
+  /**
    * Shows an avatar+name header above each assistant bubble, identifying which Team
    * member sent it. Off by default; has no effect for a standalone Agent's messages
    * (they carry no author identity).
@@ -101,6 +129,8 @@ export function ChatDiscussion({
   threadId,
   widgetRegistry,
   onSend,
+  onNewConversation,
+  conversationEndTexts,
   onHilResponse,
   onStop,
   running: runningProp,
@@ -109,6 +139,10 @@ export function ChatDiscussion({
   activityLabel,
   activityStyle,
   renderActivity,
+  showTeamProgress = true,
+  executionId,
+  teamMembers,
+  teamProgressTexts,
   showSpeakerLabels = false,
   resolveMemberAvatar,
   messageBuilder,
@@ -130,7 +164,15 @@ export function ChatDiscussion({
   // Inside an AgentivityProvider the conversation says on its own when the server cannot be reached.
   const client = useOptionalAgentivityClient();
   const awaiting = useSyncExternalStore(controller.subscribe, () => controller.isAwaitingResponse);
+  const jobFinished = useSyncExternalStore(controller.subscribe, () => controller.jobFinished);
+  const conversationEnded = useSyncExternalStore(controller.subscribe, () => controller.conversationEnded);
   const [stopping, setStopping] = useState(false);
+  const [restore, setRestore] = useState<{ text: string }>();
+  // The offer read from the platform when a chat reopens goes when the person answers it, as the one the stream brought.
+  const [offerAnswered, setOfferAnswered] = useState(false);
+  const progress = useTeamProgress(controller, { executionId, members: teamMembers, enabled: showTeamProgress });
+  const teamShown = progress?.visible === true;
+  const teamAtWork = teamShown && isTeamProgressLive(progress);
 
   const activeThreadId = threadId ?? (threads.find((t) => t.isDefault) ?? threads[0])?.threadId;
   const messages = useSyncExternalStore(controller.subscribe, () => (activeThreadId ? controller.messagesFor(activeThreadId) : EMPTY_MESSAGES));
@@ -154,6 +196,11 @@ export function ChatDiscussion({
     }
     prevCountRef.current = messages.length;
   }, [messages]);
+
+  // The team's list is new at the bottom of the thread: the person sees it come.
+  useEffect(() => {
+    if (teamAtWork && scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [teamAtWork]);
 
   const isHilActive = pendingHilGate != null;
 
@@ -190,40 +237,69 @@ export function ChatDiscussion({
     if (isHilActive) {
       void submitHilResponse(text);
     } else {
-      onSend(text, attachments);
+      setOfferAnswered(true);
+      void Promise.resolve()
+        .then(() => onSend(text, attachments))
+        .catch((error: unknown) => {
+          const refused = controller.noteSendRefused(error);
+          if (refused) setRestore({ text });
+          else throw error;
+        });
     }
+  }
+
+  const followed = executionId ?? controller.executionId;
+  const ended = conversationEnded || progress?.closed === true;
+  const offered = !ended && !isHilActive && !awaiting && runningProp !== true && (jobFinished || (progress?.jobFinished === true && !offerAnswered));
+  async function closeConversation() {
+    if (followed) await client?.runs.closeExecution(followed);
+    controller.markConversationEnded();
+  }
+  function goOn() {
+    setOfferAnswered(true);
+    controller.dismissConversationEnd();
   }
 
   const showEmpty = !activeThreadId && messages.length === 0 && !isHilActive;
 
+  const thread = showEmpty
+    ? [<div key="empty">{emptyBuilder?.() ?? null}</div>]
+    : messages.map((message, i) => {
+        if (messageBuilder) return <div key={message.id}>{messageBuilder(message)}</div>;
+        const isActiveWidget = isHilActive && i === lastWidgetIndex;
+        return (
+          <ChatMessageBubble
+            key={message.id}
+            message={message}
+            widgetRegistry={widgetRegistry}
+            enabled={isActiveWidget}
+            onWidgetSubmit={isActiveWidget && onHilResponse ? (response) => void submitHilResponse(response, 'widget') : undefined}
+            showSpeakerLabel={showSpeakerLabels}
+            resolveMemberAvatar={resolveMemberAvatar}
+          />
+        );
+      });
+  if (teamShown) {
+    // At the bottom while the team works; once it has ended, between the request and what came of it, as a line of steps.
+    const request = messages.map((m) => m.role).lastIndexOf('user');
+    const at = teamAtWork || request < 0 ? thread.length : request + 1;
+    thread.splice(at, 0, <ChatTeamProgress key="team-progress" progress={progress} resolveMemberAvatar={resolveMemberAvatar} texts={teamProgressTexts} />);
+  }
+
   return (
     <div className={cx('ag-chat-discussion', className)}>
       <div className="ag-chat-discussion__messages" ref={scrollRef}>
-        {showEmpty
-          ? (emptyBuilder?.() ?? null)
-          : messages.map((message, i) => {
-              if (messageBuilder) return <div key={message.id}>{messageBuilder(message)}</div>;
-              const isActiveWidget = isHilActive && i === lastWidgetIndex;
-              return (
-                <ChatMessageBubble
-                  key={message.id}
-                  message={message}
-                  widgetRegistry={widgetRegistry}
-                  enabled={isActiveWidget}
-                  onWidgetSubmit={isActiveWidget && onHilResponse ? (response) => void submitHilResponse(response, 'widget') : undefined}
-                  showSpeakerLabel={showSpeakerLabels}
-                  resolveMemberAvatar={resolveMemberAvatar}
-                />
-              );
-            })}
+        {thread}
       </div>
 
       {client && <ChatConnectionNotice monitor={client.connection} />}
 
       {runError && <ChatRunError error={runError} onDismiss={() => controller.dismissRunError()} />}
 
+      {(ended || offered) && <ChatConversationEnd kind={ended ? 'ended' : 'finished'} onContinue={goOn} onClose={client && followed ? () => void closeConversation() : undefined} onStartNew={onNewConversation} texts={conversationEndTexts} />}
+
       {/* A member that asked a question and waits for its answer is not at work: it says so again once the answer is on its way. */}
-      {showActiveMemberIndicator && activeMember && (!isHilActive || submittingHil) ? (
+      {teamAtWork ? null : showActiveMemberIndicator && activeMember && (!isHilActive || submittingHil) ? (
         <ChatActiveMemberIndicator member={activeMember} resolveMemberAvatar={resolveMemberAvatar} />
       ) : (
         showActivityIndicator && (
@@ -248,6 +324,7 @@ export function ChatDiscussion({
           hint={inputHint}
           hilHint={hilInputHint}
           initialText={initialInputText}
+          restore={restore}
           isHil={isHilActive}
           loading={submittingHil}
           // A pending question means the run is waiting on the user — except while their reply is in flight: that request only

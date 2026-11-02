@@ -225,6 +225,47 @@
 }
 
 /* The run stopped on an error: said plainly, above the input. */
+.ag-chat-conversation-end {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(37, 99, 235, 0.25);
+  background: rgba(37, 99, 235, 0.06);
+  color: inherit;
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.ag-chat-conversation-end__text {
+  flex: 1;
+  min-width: 140px;
+}
+
+.ag-chat-conversation-end__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ag-chat-conversation-end__action {
+  border: 1px solid rgba(37, 99, 235, 0.35);
+  border-radius: 8px;
+  padding: 4px 10px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.ag-chat-conversation-end__action--primary {
+  background: rgba(37, 99, 235, 0.14);
+  font-weight: 600;
+}
+
 .ag-chat-run-error {
   display: flex;
   align-items: flex-start;
@@ -434,7 +475,8 @@
    `.ag-team-graph` are themselves rendered inside that wrapper, so declaring the alias there
    instead resolves against the real, already-themed value. */
 .ag-team-roster,
-.ag-team-graph {
+.ag-team-graph,
+.ag-team-progress {
   --ag-team-surface: var(--ag-surface, #fff);
   --ag-team-bg: var(--ag-surface, #fff);
   --ag-team-node-fill: var(--ag-surface, #fff);
@@ -446,6 +488,184 @@
   --ag-team-failed: #DC2626;
   --ag-team-idle: var(--ag-outline-variant, #c8ccd4);
   --ag-team-done: #10B981;
+}
+
+/* The team at work, in the thread — see ChatTeamProgress.tsx. Same status colors as the roster and the graph. */
+.ag-team-progress {
+  box-sizing: border-box;
+  flex: none;
+  width: 100%;
+  max-width: 520px;
+  min-width: 0;
+  margin: 6px 0;
+  border: 1px solid var(--ag-outline-variant, #c8ccd4);
+  border-radius: 12px;
+  background: var(--ag-surface-container-low, var(--ag-surface, #f8fafc));
+  color: var(--ag-on-surface, #1e293b);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.ag-team-progress:not([data-phase='working']) {
+  background: transparent;
+}
+
+.ag-team-progress__head,
+button.ag-team-progress__line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ag-team-progress__head:focus-visible,
+button.ag-team-progress__line:focus-visible {
+  outline: 2px solid var(--ag-primary, #2563eb);
+  outline-offset: -2px;
+  border-radius: 12px;
+}
+
+.ag-team-progress__title {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+}
+
+.ag-team-progress:not([data-phase='working']) .ag-team-progress__title {
+  font-weight: 400;
+  color: var(--ag-team-muted);
+}
+
+.ag-team-progress__count {
+  flex: none;
+  font-size: 12px;
+  color: var(--ag-team-muted);
+}
+
+.ag-team-progress__chevron {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin: 0 3px;
+  border-right: 1.5px solid var(--ag-team-muted);
+  border-bottom: 1.5px solid var(--ag-team-muted);
+  transform: rotate(-45deg);
+  transition: transform 0.15s ease;
+}
+
+.ag-team-progress__head[aria-expanded='true'] .ag-team-progress__chevron {
+  transform: rotate(45deg);
+}
+
+.ag-team-progress__agents {
+  margin: 0;
+  padding: 0 0 4px;
+  list-style: none;
+}
+
+.ag-team-progress__agent {
+  min-width: 0;
+  border-top: 1px solid var(--ag-outline-variant, #c8ccd4);
+}
+
+.ag-team-progress__line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px 12px;
+}
+
+.ag-team-progress__agent[data-status='pending'] .ag-team-progress__line {
+  opacity: 0.6;
+}
+
+.ag-team-progress__avatar {
+  flex: none;
+  width: 28px;
+  height: 28px;
+}
+
+.ag-team-progress__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ag-team-progress__name {
+  font-weight: 600;
+}
+
+.ag-team-progress__description {
+  font-size: 12px;
+  color: var(--ag-team-muted);
+  overflow-wrap: anywhere;
+}
+
+.ag-team-progress__mark {
+  flex: none;
+  box-sizing: border-box;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--ag-team-idle);
+}
+
+.ag-team-progress__mark[data-status='working'] {
+  border-color: var(--ag-team-working);
+  border-right-color: transparent;
+  animation: ag-chat-activity-turn 1s infinite linear;
+}
+
+.ag-team-progress__mark[data-status='waiting'] {
+  border-color: var(--ag-team-waiting);
+}
+
+.ag-team-progress__mark[data-status='done'] {
+  border-color: var(--ag-team-done);
+  background: var(--ag-team-done);
+}
+
+.ag-team-progress__mark[data-status='failed'] {
+  border-color: var(--ag-team-failed);
+  background: var(--ag-team-failed);
+}
+
+.ag-team-progress__result {
+  max-height: 45vh;
+  overflow-y: auto;
+  padding: 0 12px 10px 50px;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 480px) {
+  .ag-team-progress {
+    max-width: none;
+  }
+
+  .ag-team-progress__result {
+    padding-left: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ag-team-progress__mark[data-status='working'] {
+    animation: none;
+  }
+
+  .ag-team-progress__chevron {
+    transition: none;
+  }
 }
 
 /* Team roster: one avatar per member, ringed by live status. Override --ag-team-* to retheme. */

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type ChangeEvent, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } from 'react';
 
 export interface ChatInputProps {
   /** Called when the user submits. `attachments` is cleared after the callback runs. */
@@ -11,6 +11,8 @@ export interface ChatInputProps {
   hilHint?: string;
   minRows?: number;
   maxRows?: number;
+  /** Puts this text back in the field: what was sent could not go through. A new object each time. */
+  restore?: { text: string };
   /** When false, the field and all buttons are disabled. */
   enabled?: boolean;
   /** When true, the send button shows a spinner. */
@@ -56,6 +58,7 @@ export function ChatInput({
   onSend,
   hint = 'Type a message…',
   initialText,
+  restore,
   hilHint = 'Type your response…',
   minRows = 1,
   maxRows = 6,
@@ -78,6 +81,10 @@ export function ChatInput({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
+
+  useEffect(() => {
+    if (restore) setText(restore.text);
+  }, [restore]);
 
   const disabled = !enabled || loading;
 

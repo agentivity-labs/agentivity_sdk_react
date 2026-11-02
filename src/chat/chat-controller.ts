@@ -1,3 +1,4 @@
+import { apiErrorCode } from '../client/api-contract.js';
 import type { AgUiEvent } from '../protocol/events.js';
 import { chatMessageRoleFromRaw, parseContentBlocks, type ChatHilGate, type ChatMessage, type ChatThread } from './chat-models.js';
 
@@ -75,12 +76,20 @@ export class ChatController {
   private activeMemberState: ActiveChatMember | undefined;
   private currentStepState: string | undefined;
   private runErrorState: AgUiRunError | undefined;
+  private executionIdState: string | undefined;
+  private runIdState: string | undefined;
+  private jobFinishedState = false;
+  private conversationEndedState = false;
   // Replaced (never mutated) on every change so it is a stable useSyncExternalStore snapshot.
   private memberStatusesState: ReadonlyMap<string, TeamMemberStatus> = new Map();
   // Same shape as memberStatusesState, keyed by stepName instead of memberEntityId — set
   // unconditionally (a standalone Agent/Workflow's STEP_STARTED never carries member identity,
   // but always carries stepName). Powers WorkflowGraph.
   private stepStatusesState: ReadonlyMap<string, WorkflowStepStatus> = new Map();
+  // Same replacement rule: memberEntityId -> displayName, in the order they first took a turn.
+  private seenMembersState: ReadonlyMap<string, string | undefined> = new Map();
+  // Same replacement rule: memberEntityId -> what it is about to do, as said when its turn started.
+  private memberActivitiesState: ReadonlyMap<string, string> = new Map();
 
   constructor(args: { contextId?: string } = {}) {
     this.contextId = args.contextId ?? '';
@@ -172,6 +181,70 @@ export class ChatController {
    */
   get stepStatuses(): ReadonlyMap<string, WorkflowStepStatus> {
     return this.stepStatusesState;
+  }
+
+  /** The execution the stream is telling about (the last one, when an app starts one per request), or `undefined` until it says. */
+  get executionId(): string | undefined {
+    return this.executionIdState;
+  }
+
+  /** The Team members of this execution that have taken a turn, in that order, with their names — all a chat knows of a Team it cannot read. */
+  get seenMembers(): ReadonlyMap<string, string | undefined> {
+    return this.seenMembersState;
+  }
+
+  /** What each Team member at work is about to do, in a few words for a customer, when its manager said it, keyed by `memberEntityId`. */
+  get memberActivities(): ReadonlyMap<string, string> {
+    return this.memberActivitiesState;
+  }
+
+  /** A job has just finished: the person can go on, close or start another. Cleared by the next run or {@link dismissConversationEnd}. */
+  get jobFinished(): boolean {
+    return this.jobFinishedState;
+  }
+
+  /** The conversation has ended, on purpose: a message in it is refused until a new one starts. */
+  get conversationEnded(): boolean {
+    return this.conversationEndedState;
+  }
+
+  /** The person goes on: hides the offer of a finished job. */
+  dismissConversationEnd(): void {
+    if (!this.jobFinishedState) return;
+    this.jobFinishedState = false;
+    this.notify();
+  }
+
+  /**
+   * A message was refused by the platform: tells this conversation why, for it to show what comes next. For an app whose `onSend`
+   * catches the failure itself; one that lets it reject needs nothing. Gives `'ended'`, `'busy'`, or `undefined` for any other failure.
+   */
+  noteSendRefused(error: unknown): 'ended' | 'busy' | undefined {
+    const code = apiErrorCode(error);
+    if (code === 'execution_ended') {
+      this.markConversationEnded();
+      return 'ended';
+    }
+    return code === 'execution_busy' ? 'busy' : undefined;
+  }
+
+  /** The conversation has been closed. */
+  markConversationEnded(): void {
+    this.jobFinishedState = false;
+    this.conversationEndedState = true;
+    this.notify();
+  }
+
+  // Another execution on the same controller: what its members do starts afresh, the conversation stays.
+  private noteExecution(executionId: string | undefined): void {
+    if (!executionId || executionId === this.executionIdState) return;
+    if (this.executionIdState) {
+      this.memberStatusesState = new Map();
+      this.stepStatusesState = new Map();
+      this.seenMembersState = new Map();
+      this.memberActivitiesState = new Map();
+    }
+    this.executionIdState = executionId;
   }
 
   private setMemberStatus(memberEntityId: string, status: TeamMemberStatus): void {
@@ -277,6 +350,12 @@ export class ChatController {
     this.runErrorState = undefined;
     this.memberStatusesState = new Map();
     this.stepStatusesState = new Map();
+    this.seenMembersState = new Map();
+    this.memberActivitiesState = new Map();
+    this.executionIdState = undefined;
+    this.runIdState = undefined;
+    this.jobFinishedState = false;
+    this.conversationEndedState = false;
     this.inProgress.clear();
     this.inProgressThreadId.clear();
     this.notify();
@@ -285,11 +364,20 @@ export class ChatController {
   // ── AG-UI event reduction ────────────────────────────────────────────────
 
   private onAgUiEvent(event: AgUiEvent): void {
+    this.noteExecution(event.executionId);
     switch (event.type) {
       // Run lifecycle → drive isAwaitingResponse
       case 'RUN_STARTED':
         this.isAwaitingResponseState = true;
         this.runErrorState = undefined;
+        this.jobFinishedState = false;
+        // A new run of the same conversation: its team starts afresh, the conversation stays. An answer takes up the same run.
+        if (this.runIdState && event.runId && event.runId !== this.runIdState) {
+          this.memberStatusesState = new Map();
+          this.stepStatusesState = new Map();
+          this.memberActivitiesState = new Map();
+        }
+        this.runIdState = event.runId || this.runIdState;
         this.notify();
         break;
 
@@ -299,6 +387,7 @@ export class ChatController {
         this.currentStepState = undefined;
         this.settleWorkingMembers(event.outcome?.kind === 'interrupt');
         this.settleWorkingSteps(event.outcome?.kind === 'interrupt');
+        if (event.jobFinished) this.jobFinishedState = true;
         if (event.outcome?.kind === 'interrupt') {
           for (const interrupt of event.outcome.interrupts) {
             if (interrupt.reason === 'chat_hil_gate' || interrupt.reason.startsWith('chat')) {
@@ -341,7 +430,15 @@ export class ChatController {
         }
         if (event.memberEntityId || event.displayName) {
           this.activeMemberState = { memberEntityId: event.memberEntityId, displayName: event.displayName };
-          if (event.memberEntityId) this.setMemberStatus(event.memberEntityId, 'working');
+          if (event.memberEntityId) {
+            this.setMemberStatus(event.memberEntityId, 'working');
+            if (!this.seenMembersState.has(event.memberEntityId)) this.seenMembersState = new Map(this.seenMembersState).set(event.memberEntityId, event.displayName);
+            // Of this turn: what it said on an earlier one is over.
+            const activities = new Map(this.memberActivitiesState);
+            if (event.activity) activities.set(event.memberEntityId, event.activity);
+            else activities.delete(event.memberEntityId);
+            this.memberActivitiesState = activities;
+          }
         }
         if (event.stepName || this.activeMemberState) this.notify();
         break;
