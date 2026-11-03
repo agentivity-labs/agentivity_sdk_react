@@ -112,6 +112,8 @@ export interface ChatDiscussionProps {
   initialInputText?: string;
   enableVoice?: boolean;
   onTranscribeAudio?: (audio: Blob, mimeType: string) => Promise<string | undefined>;
+  /** What the field says when dictation fails: see `ChatInput`'s `voiceProblemTexts`. */
+  voiceProblemTexts?: { notHeard?: string; noMic?: string };
   enableAttachments?: boolean;
   acceptedAttachmentExtensions?: string[];
   className?: string;
@@ -154,6 +156,7 @@ export function ChatDiscussion({
   initialInputText,
   enableVoice = true,
   onTranscribeAudio,
+  voiceProblemTexts,
   enableAttachments = true,
   acceptedAttachmentExtensions,
   className,
@@ -347,6 +350,7 @@ export function ChatDiscussion({
           stopping={stopping}
           enableVoice={enableVoice}
           onTranscribeAudio={onTranscribeAudio}
+          voiceProblemTexts={voiceProblemTexts}
           enableAttachments={enableAttachments}
           acceptedExtensions={acceptedAttachmentExtensions}
         />

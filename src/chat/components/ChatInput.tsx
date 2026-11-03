@@ -169,7 +169,7 @@ export function ChatInput({
       setIsRecording(true);
     } catch (error) {
       if (typeof console !== 'undefined') console.warn('Could not start audio recording', error);
-      setVoiceProblem(voiceProblemTexts?.noMic ?? 'The mic could not be used. Allow it in the browser, or type your message.');
+      setVoiceProblem(voiceProblemTexts?.noMic ?? 'The mic could not be used. Allow it, or type your message.');
     }
   }, [isRecording, onTranscribeAudio, voiceProblemTexts]);
 
