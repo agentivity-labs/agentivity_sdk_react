@@ -135,7 +135,7 @@ export { MemberAvatar, resolveMemberAvatar } from './chat/components/member-avat
 export type { AgUiChatMember, AgUiMemberAvatar } from './chat/components/member-avatar.js';
 export { ChatTeamProgress, defaultTeamProgressTexts } from './chat/components/ChatTeamProgress.js';
 export type { ChatTeamProgressProps, ChatTeamProgressTexts } from './chat/components/ChatTeamProgress.js';
-export { buildTeamProgress, isTeamProgressLive, summarizeForCustomer } from './chat/team-progress.js';
+export { buildTeamProgress, isTeamProgressLive, summarizeForCustomer, withoutNotesToTheManager } from './chat/team-progress.js';
 export type { TeamProgress, TeamProgressAgent, TeamProgressInput, TeamProgressPhase, TeamProgressStatus } from './chat/team-progress.js';
 export { TeamRoster } from './chat/components/TeamRoster.js';
 export type { TeamRosterProps } from './chat/components/TeamRoster.js';
@@ -233,6 +233,7 @@ export { useChatController } from './react/useChatController.js';
 export type { UseChatControllerResult } from './react/useChatController.js';
 export { useTeamProgress } from './react/useTeamProgress.js';
 export type { UseTeamProgressOptions } from './react/useTeamProgress.js';
+export { useStreamResync, STREAM_RESYNC_AFTER_MS } from './react/useStreamResync.js';
 export { useExecutionStatuses } from './react/useExecutionStatuses.js';
 export type { UseExecutionStatusesOptions, ExecutionStepStatuses } from './react/useExecutionStatuses.js';
 export { isExecutionLive, parseExecutionStatuses } from './client/domain/execution-status-models.js';

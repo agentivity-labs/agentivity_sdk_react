@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import type { ChatController } from '../chat-controller.js';
 import type { ChatHilGate, ChatMessage } from '../chat-models.js';
 import { isDisplayWidget, type AgUiWidgetRegistry } from '../../artifacts/widget-registry.js';
@@ -12,6 +12,7 @@ import { ChatConversationEnd, type ChatConversationEndTexts } from './ChatConver
 import { ChatConnectionNotice } from './ChatConnectionNotice.js';
 import { useOptionalAgentivityClient } from '../../react/AgentivityProvider.js';
 import { useTeamProgress } from '../../react/useTeamProgress.js';
+import { useStreamResync } from '../../react/useStreamResync.js';
 import { isTeamProgressLive } from '../team-progress.js';
 import type { AgUiChatMember, AgUiMemberAvatar } from './member-avatar.js';
 import type { AgUiTeamMember } from './team-member.js';
@@ -29,9 +30,10 @@ export interface ChatDiscussionProps {
   onSend: (text: string, attachments: File[]) => void | Promise<void>;
   /**
    * The person starts another conversation, from zero: the app forgets its execution, so that the next message starts a new one, and
-   * clears the controller. Providing it is what offers the choice, once a job is finished or a conversation has ended.
+   * clears the controller. Providing it is what offers the choice, once a job is finished or a conversation has ended. `draft` is
+   * what the input holds then (a message refused by the conversation that ended, say), for the new one to start with.
    */
-  onNewConversation?: () => void;
+  onNewConversation?: (draft: string) => void;
   /** Other words, or another language, for what is offered at the end of a job or of a conversation. */
   conversationEndTexts?: Partial<ChatConversationEndTexts>;
   /**
@@ -178,6 +180,11 @@ export function ChatDiscussion({
   const messages = useSyncExternalStore(controller.subscribe, () => (activeThreadId ? controller.messagesFor(activeThreadId) : EMPTY_MESSAGES));
 
   const [submittingHil, setSubmittingHil] = useState(false);
+  const [sending, setSending] = useState(false);
+  const draft = useRef('');
+  const noteDraft = useCallback((text: string) => {
+    draft.current = text;
+  }, []);
   async function stop() {
     if (!onStop || stopping) return;
     setStopping(true);
@@ -238,17 +245,22 @@ export function ChatDiscussion({
       void submitHilResponse(text);
     } else {
       setOfferAnswered(true);
+      // A message may wait a little for the turn before it to finish: the input says it is on its way meanwhile.
+      setSending(true);
       void Promise.resolve()
         .then(() => onSend(text, attachments))
         .catch((error: unknown) => {
           const refused = controller.noteSendRefused(error);
           if (refused) setRestore({ text });
           else throw error;
-        });
+        })
+        .finally(() => setSending(false));
     }
   }
 
   const followed = executionId ?? controller.executionId;
+  // A stream lost during a turn (the server started again) does not leave the chat at work for ever.
+  useStreamResync(client, controller, followed);
   const ended = conversationEnded || progress?.closed === true;
   const offered = !ended && !isHilActive && !awaiting && runningProp !== true && (jobFinished || (progress?.jobFinished === true && !offerAnswered));
   async function closeConversation() {
@@ -296,7 +308,7 @@ export function ChatDiscussion({
 
       {runError && <ChatRunError error={runError} onDismiss={() => controller.dismissRunError()} />}
 
-      {(ended || offered) && <ChatConversationEnd kind={ended ? 'ended' : 'finished'} onContinue={goOn} onClose={client && followed ? () => void closeConversation() : undefined} onStartNew={onNewConversation} texts={conversationEndTexts} />}
+      {(ended || offered) && <ChatConversationEnd kind={ended ? 'ended' : 'finished'} onContinue={goOn} onClose={client && followed ? () => void closeConversation() : undefined} onStartNew={onNewConversation ? () => onNewConversation(draft.current.trim()) : undefined} texts={conversationEndTexts} />}
 
       {/* A member that asked a question and waits for its answer is not at work: it says so again once the answer is on its way. */}
       {teamAtWork ? null : showActiveMemberIndicator && activeMember && (!isHilActive || submittingHil) ? (
@@ -325,8 +337,9 @@ export function ChatDiscussion({
           hilHint={hilInputHint}
           initialText={initialInputText}
           restore={restore}
+          onTextChange={noteDraft}
           isHil={isHilActive}
-          loading={submittingHil}
+          loading={submittingHil || sending}
           // A pending question means the run is waiting on the user — except while their reply is in flight: that request only
           // returns once the run suspends again, so the run IS working then and must stay stoppable.
           running={(runningProp === true || awaiting) && (!isHilActive || submittingHil)}

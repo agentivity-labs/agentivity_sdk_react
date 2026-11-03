@@ -91,6 +91,7 @@ export function buildTeamProgress(input: TeamProgressInput): TeamProgress {
   const managerId = members[0]?.topology?.kind === 'manager-led' ? members[0].memberEntityId : [...steps.values()].find((s) => s.isManager)?.memberEntityId;
   const byId = new Map(members.map((m) => [m.memberEntityId, m]));
   const ids = new Set([...byId.keys(), ...steps.keys(), ...seenMembers.keys()]);
+  const managerName = managerId ? (byId.get(managerId)?.displayName ?? steps.get(managerId)?.displayName ?? seenMembers.get(managerId)) : undefined;
 
   const agents: TeamProgressAgent[] = [...ids].map((id) => {
     const step = steps.get(id);
@@ -102,14 +103,15 @@ export function buildTeamProgress(input: TeamProgressInput): TeamProgress {
     // Between two turns a manager is not done: the team still works for it.
     if (isManager && live && status === 'done') status = 'pending';
     const worker = !isManager && status === 'done';
+    const result = worker ? withoutNotesToTheManager(step?.result, managerName) : undefined;
     return {
       memberEntityId: id,
       displayName: byId.get(id)?.displayName ?? step?.displayName ?? seenMembers.get(id) ?? id,
       member: byId.get(id),
       isManager,
       status,
-      description: isManager ? undefined : status === 'working' ? (streamActivities?.get(id) ?? step?.activity) : worker ? (step?.summary ?? summarizeForCustomer(step?.result)) : undefined,
-      result: worker ? step?.result : undefined,
+      description: isManager ? undefined : status === 'working' ? (streamActivities?.get(id) ?? step?.activity) : worker ? (step?.summary ?? summarizeForCustomer(result)) : undefined,
+      result,
     };
   });
 
@@ -164,6 +166,26 @@ export function summarizeForCustomer(result: string | undefined): string | undef
   const words = sentence.replace(/[.:;,]+$/, '');
   if (words.length <= MAX_SUMMARY) return words;
   return `${words.slice(0, MAX_SUMMARY).replace(/\s+\S*$/, '')}…`;
+}
+
+/**
+ * An agent's result without what it writes for its manager only ("Note for the Head Coach: …", "To the manager: …"): a paragraph
+ * that opens that way is not for the person. `undefined` when nothing else is left.
+ */
+export function withoutNotesToTheManager(result: string | undefined, managerName?: string): string | undefined {
+  if (!result) return undefined;
+  const to = ['the manager', 'manager', 'the coordinator', 'the team lead', ...(managerName ? [`the ${managerName}`, managerName] : [])].map(escapeRegExp).join('|');
+  const opensANote = new RegExp(`^(?:note|notes|message|brief|handoff|fyi)?\\s*(?:for|to)\\s+(?:${to})\\b|^(?:${to})\\s*[,:—-]|^internal\\s+note\\s*:`, 'i');
+  const kept = result
+    .split(/\n\s*\n/)
+    .filter((paragraph) => !opensANote.test(cleanLine(paragraph.trim().split('\n')[0] ?? '')))
+    .join('\n\n')
+    .trim();
+  return kept || undefined;
+}
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function cleanLine(line: string): string {

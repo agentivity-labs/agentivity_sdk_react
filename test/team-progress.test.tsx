@@ -95,6 +95,17 @@ describe('buildTeamProgress', () => {
     expect(progress.agents.find((a) => a.isManager)).toMatchObject({ result: undefined, description: undefined });
   });
 
+  it('never shows the person what an agent wrote for its manager only', () => {
+    const steps = new Map<string, ExecutionMemberStep>([
+      ['lead', { memberEntityId: 'lead', displayName: 'Head Coach', state: 'done', isManager: true }],
+      ['a', { memberEntityId: 'a', displayName: 'Nutrition Coach', state: 'done', result: "Note for the Head Coach: I don't have the exact wording of the plan.\n\nThree meals a day, protein at each one." }],
+      ['b', { memberEntityId: 'b', displayName: 'Safety Coach', state: 'done', result: 'To the manager: nothing to flag.' }],
+    ]);
+    const progress = buildTeamProgress(input({ members: undefined, executionState: 'completed', steps }));
+    expect(progress.agents.find((a) => a.memberEntityId === 'a')).toMatchObject({ description: 'Three meals a day, protein at each one', result: 'Three meals a day, protein at each one.' });
+    expect(progress.agents.find((a) => a.memberEntityId === 'b')).toMatchObject({ description: undefined, result: undefined });
+  });
+
   it('keeps those who took part once it ends, with how long it took', () => {
     const progress = buildTeamProgress(input({ executionState: 'completed', startedAt: '2026-01-01T10:00:00Z', lastStepAt: '2026-01-01T10:04:32Z', steps: new Map([step('lead', 'done'), step('a', 'done', 'The market grew by a third.')]) }));
     expect(progress.agents.map((a) => a.memberEntityId)).toEqual(['lead', 'a']);

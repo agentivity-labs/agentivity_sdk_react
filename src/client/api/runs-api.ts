@@ -13,6 +13,10 @@ import {
 } from '../domain/entity-models.js';
 import { parseExecutionStatuses, type ExecutionStatuses } from '../domain/execution-status-models.js';
 
+/** How long a message waits, in all, for the turn of its conversation to finish, and how often it asks again. */
+const TURN_WAIT_MS = 30_000;
+const TURN_RETRY_MS = 1_500;
+
 /**
  * Execution lifecycle endpoints: start, questions to a person, and SSE streams.
  *
@@ -39,6 +43,8 @@ export class RunsApi {
     maxAgentIterations?: number;
     /** Images attached to this turn (vision) — agent-kind executions only for now. */
     images?: ImageAttachmentInput[];
+    /** How long a message in a conversation whose turn is still finishing waits for it, in all (30 s by default; 0 refuses at once). */
+    waitForTurnMs?: number;
   }): Promise<SessionStartedResponse> {
     const entityId = this.c.requireNormalizedId(args.entityId, 'Entity id');
     const body: Record<string, unknown> = {
@@ -50,8 +56,19 @@ export class RunsApi {
     if (args.maxAgentIterations != null) body['maxAgentIterations'] = args.maxAgentIterations;
     if (args.images && args.images.length > 0) body['images'] = args.images;
 
-    const data = await this.c.post<Record<string, unknown>>(AgentivityHttpCore.v1('/executions'), body);
-    return parseSessionStartedResponse(data ?? {});
+    // A turn that has given its reply may still be finishing (a team writes down what was said): the message waits for it and is
+    // sent again, since a refusal ran nothing. A turn that waits for an answer is refused at once, as one still at work after the wait.
+    const startedAt = Date.now();
+    for (;;) {
+      try {
+        const data = await this.c.post<Record<string, unknown>>(AgentivityHttpCore.v1('/executions'), body);
+        return parseSessionStartedResponse(data ?? {});
+      } catch (error) {
+        const finishing = body['executionId'] && error instanceof ApiException && error.code === 'execution_busy' && error.context?.['waiting'] !== true;
+        if (!finishing || Date.now() - startedAt + TURN_RETRY_MS > (args.waitForTurnMs ?? TURN_WAIT_MS)) throw error;
+        await new Promise<void>((resolve) => setTimeout(resolve, TURN_RETRY_MS));
+      }
+    }
   }
 
   // ---------------------------------------------------------------------------

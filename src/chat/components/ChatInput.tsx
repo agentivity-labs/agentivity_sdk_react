@@ -13,6 +13,8 @@ export interface ChatInputProps {
   maxRows?: number;
   /** Puts this text back in the field: what was sent could not go through. A new object each time. */
   restore?: { text: string };
+  /** Told what the field holds, whenever it changes. */
+  onTextChange?: (text: string) => void;
   /** When false, the field and all buttons are disabled. */
   enabled?: boolean;
   /** When true, the send button shows a spinner. */
@@ -59,6 +61,7 @@ export function ChatInput({
   hint = 'Type a message…',
   initialText,
   restore,
+  onTextChange,
   hilHint = 'Type your response…',
   minRows = 1,
   maxRows = 6,
@@ -85,6 +88,10 @@ export function ChatInput({
   useEffect(() => {
     if (restore) setText(restore.text);
   }, [restore]);
+
+  useEffect(() => {
+    onTextChange?.(text);
+  }, [text, onTextChange]);
 
   const disabled = !enabled || loading;
 

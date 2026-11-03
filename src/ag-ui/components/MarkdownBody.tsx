@@ -22,7 +22,9 @@ export interface MarkdownBodyProps {
  */
 export function MarkdownBody({ data, textColor, linkColor, className }: MarkdownBodyProps) {
   const link = linkColor ?? 'var(--ag-primary, #2563eb)';
-  const style: CSSProperties = { color: textColor, lineHeight: 1.35 };
+  // The bubbles keep line breaks (pre-wrap): here the line breaks between blocks, which the Markdown leaves as text around a list or
+  // a table, would show as empty lines. Only a paragraph keeps the breaks written inside it.
+  const style: CSSProperties = { color: textColor, lineHeight: 1.35, whiteSpace: 'normal' };
 
   return (
     <div className={className} style={style}>
@@ -33,7 +35,11 @@ export function MarkdownBody({ data, textColor, linkColor, className }: Markdown
           // browser's default UA margin (~1em top AND bottom), which towers over the compact spacing
           // used everywhere else here (line-height 1.35, 2-4px block margins). A message with more
           // than one paragraph showed a large, unintended gap between them because of this one gap.
-          p: (props) => <p {...props} style={{ margin: '0.4em 0' }} />,
+          p: (props) => <p {...props} style={{ margin: '0.4em 0', whiteSpace: 'pre-wrap' }} />,
+          // Lists as compact as paragraphs, not the browser's 1em above and below.
+          ul: (props) => <ul {...props} style={{ margin: '0.4em 0', paddingLeft: '1.4em' }} />,
+          ol: (props) => <ol {...props} style={{ margin: '0.4em 0', paddingLeft: '1.4em' }} />,
+          li: (props) => <li {...props} style={{ margin: '0.15em 0' }} />,
           a: (props) => <a {...props} style={{ color: link }} />,
           // An image in a message must never be wider than the bubble nor blow up to its natural size (a shop
           // photo is often 2000px): fit the width, keep the ratio, request it without a Referer (some shops refuse

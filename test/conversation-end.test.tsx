@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { ChatController } from '../src/chat/chat-controller.js';
 import { ChatDiscussion } from '../src/chat/components/ChatDiscussion.js';
 import { ApiException } from '../src/client/api-contract.js';
+import { RunsApi } from '../src/client/api/runs-api.js';
+import { AgentivityHttpCore } from '../src/client/http-core.js';
 import { parseSessionStartedResponse } from '../src/client/domain/entity-models.js';
 import { parseAgUiEvent } from '../src/protocol/events.js';
 
@@ -51,6 +53,49 @@ describe('a conversation that goes on', () => {
   });
 });
 
+describe('a message sent while the turn before it finishes', () => {
+  const busy = (waiting: boolean) =>
+    new Response(JSON.stringify({ httpStatus: 409, code: 'execution_busy', userMessage: 'Busy.', context: { executionId: 'e', waiting } }), { status: 409, headers: { 'content-type': 'application/json' } });
+  const started = () => new Response(JSON.stringify({ executionId: 'e', streamId: 's', runId: 'r', state: 'active' }), { status: 200, headers: { 'content-type': 'application/json' } });
+
+  it('waits for the turn and is sent again, once', async () => {
+    vi.useFakeTimers();
+    try {
+      const fetchImpl = vi.fn().mockResolvedValueOnce(busy(false)).mockResolvedValueOnce(busy(false)).mockResolvedValueOnce(started());
+      const runs = new RunsApi(new AgentivityHttpCore({ baseUrl: 'http://x/', fetchImpl }));
+      const sending = runs.startExecution({ entityId: 't', input: 'And tomorrow?', executionId: 'e' });
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect((await sending).executionId).toBe('e');
+      expect(fetchImpl).toHaveBeenCalledTimes(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('is refused at once when the turn waits for an answer, and for a new conversation', async () => {
+    const fetchImpl = vi.fn().mockImplementation(() => Promise.resolve(busy(true)));
+    const runs = new RunsApi(new AgentivityHttpCore({ baseUrl: 'http://x/', fetchImpl }));
+    await expect(runs.startExecution({ entityId: 't', input: 'Hi', executionId: 'e' })).rejects.toMatchObject({ code: 'execution_busy' });
+    await expect(runs.startExecution({ entityId: 't', input: 'Hi' })).rejects.toMatchObject({ code: 'execution_busy' });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it('gives up after the wait, and the chat keeps the text', async () => {
+    vi.useFakeTimers();
+    try {
+      const fetchImpl = vi.fn().mockImplementation(() => Promise.resolve(busy(false)));
+      const runs = new RunsApi(new AgentivityHttpCore({ baseUrl: 'http://x/', fetchImpl }));
+      const sending = runs.startExecution({ entityId: 't', input: 'Hi', executionId: 'e', waitForTurnMs: 4_000 });
+      const failed = expect(sending).rejects.toMatchObject({ code: 'execution_busy' });
+      await vi.advanceTimersByTimeAsync(5_000);
+      await failed;
+      expect(fetchImpl.mock.calls.length).toBeLessThanOrEqual(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe('a message that is refused', () => {
   it('shows that the conversation has ended, and only a yes starts anything', async () => {
     const c = new ChatController();
@@ -73,6 +118,18 @@ describe('a message that is refused', () => {
     await send('Faster!');
 
     await waitFor(() => expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toBe('Faster!'));
+  });
+
+  it('goes with the person into a new conversation', async () => {
+    const c = new ChatController();
+    const onNew = vi.fn();
+    render(<ChatDiscussion controller={c} onSend={() => Promise.reject(refused('execution_ended'))} onNewConversation={onNew} enableVoice={false} />);
+
+    await send('Still there?');
+    await waitFor(() => expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toBe('Still there?'));
+    fireEvent.click(screen.getByText('Start a new one'));
+
+    expect(onNew).toHaveBeenCalledWith('Still there?');
   });
 
   it('is told by an app that catches the failure itself', () => {

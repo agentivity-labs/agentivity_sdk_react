@@ -73,6 +73,17 @@ describe('ChatMessageBubble', () => {
   });
 });
 
+describe('ChatMessageBubble — lists', () => {
+  it('shows no empty line around a list: only a paragraph keeps its line breaks', () => {
+    const message: ChatMessage = { id: 'm', role: 'assistant', contextId: '', threadId: 't', runId: '', text: 'Monday:\n\n- Squat\n- Row\n\nRest after.', createdAt: new Date() };
+    const { container } = render(<ChatMessageBubble message={message} />);
+    const list = container.querySelector('ul')!;
+    expect(list.querySelectorAll('li')).toHaveLength(2);
+    expect((list.parentElement as HTMLElement).style.whiteSpace).toBe('normal');
+    expect(container.querySelector('p')!.style.whiteSpace).toBe('pre-wrap');
+  });
+});
+
 describe('ChatMessageBubble — read-only widgets', () => {
   const widgetMessage = (type: string) => baseMessage({ text: '', metadata: { widgetType: type, widgetProps: {} } });
   const block = (container: HTMLElement) => container.querySelector<HTMLElement>('.ag-chat-widget-block')!;
