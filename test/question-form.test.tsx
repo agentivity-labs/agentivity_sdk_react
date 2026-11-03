@@ -44,6 +44,27 @@ describe('QuestionForm', () => {
     expect(onSubmit).toHaveBeenCalledWith('• Need a rental car? → No');
   });
 
+  it('offers the options of a choice question as buttons, and a multiline question as a text area', () => {
+    const onSubmit = vi.fn();
+    render(
+      <QuestionForm
+        props={{
+          questions: [
+            { id: 'platform', label: 'Platform', type: 'choice', options: ['LinkedIn', 'Instagram', 'X'] },
+            { id: 'idea', label: 'Post idea', type: 'multiline' },
+          ],
+          __onSubmit: onSubmit,
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Instagram' }));
+    fireEvent.change(document.querySelector('textarea') as HTMLTextAreaElement, { target: { value: 'Batch roasting\nonce a week' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(onSubmit).toHaveBeenCalledWith('• Platform → Instagram\n• Post idea → Batch roasting\nonce a week');
+  });
+
   it('an unknown type falls back to text, so a client ahead of an older SDK never breaks', () => {
     const onSubmit = vi.fn();
     render(<QuestionForm props={{ questions: [{ id: 'x', label: 'X', type: 'currency' }], __onSubmit: onSubmit }} />);

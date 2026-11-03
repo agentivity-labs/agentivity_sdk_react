@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ArtifactCard } from '../ArtifactCard.js';
 import type { ChartProps } from '../charts/BarChart.js';
 
-type QuestionType = 'text' | 'date' | 'number' | 'boolean';
+type QuestionType = 'text' | 'multiline' | 'date' | 'number' | 'boolean' | 'choice';
 
 interface Question {
   id: string;
@@ -10,9 +10,10 @@ interface Question {
   hint?: string;
   required: boolean;
   type: QuestionType;
+  options: string[];
 }
 
-const QUESTION_TYPES: readonly QuestionType[] = ['text', 'date', 'number', 'boolean'];
+const QUESTION_TYPES: readonly QuestionType[] = ['text', 'multiline', 'date', 'number', 'boolean', 'choice'];
 
 function asQuestions(raw: unknown): Question[] {
   if (!Array.isArray(raw)) return [];
@@ -26,6 +27,7 @@ function asQuestions(raw: unknown): Question[] {
         hint: q['hint'] != null ? String(q['hint']) : undefined,
         required: q['required'] !== false,
         type,
+        options: Array.isArray(q['options']) ? q['options'].map((o) => String(o)) : [],
       };
     });
 }
@@ -40,8 +42,9 @@ function asQuestions(raw: unknown): Question[] {
  * A boolean answer reads as "Yes"/"No"; a date answer as its ISO date (`2027-07-01`).
  *
  * Agent props: `{ title, questions: [{ id, label, hint?, required?, type? }], submitLabel? }`.
- * `type` is `'text'` (default), `'date'` (a native date picker — always use this for a question about
- * a date, never a free-text field), `'number'`, or `'boolean'` (Yes/No).
+ * `type` is `'text'` (default), `'multiline'` (a longer free answer), `'date'` (a native date picker —
+ * always use this for a question about a date, never a free-text field), `'number'`, `'boolean'`
+ * (Yes/No), or `'choice'` (one of `options`, as buttons).
  */
 export function QuestionForm({ props }: ChartProps) {
   const title = typeof props['title'] === 'string' ? props['title'] : 'Questions';
@@ -69,6 +72,44 @@ export function QuestionForm({ props }: ChartProps) {
     const onEnter = (e: { key: string }) => {
       if (e.key === 'Enter' && isLast) submit();
     };
+    if (q.type === 'choice') {
+      const value = answers[q.id];
+      return (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {q.options.map((option) => (
+            <button
+              key={option}
+              type="button"
+              disabled={submitted}
+              onClick={() => setAnswers((prev) => ({ ...prev, [q.id]: option }))}
+              style={{
+                padding: '8px 12px',
+                fontSize: 13,
+                borderRadius: 6,
+                border: `1px solid ${value === option ? 'var(--ag-primary, #2563eb)' : 'var(--ag-outline-variant, #e2e8f0)'}`,
+                background: value === option ? 'var(--ag-primary, #2563eb)' : 'transparent',
+                color: value === option ? 'white' : 'inherit',
+                cursor: 'pointer',
+              }}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+      );
+    }
+    if (q.type === 'multiline') {
+      return (
+        <textarea
+          rows={4}
+          placeholder={q.hint}
+          disabled={submitted}
+          value={answers[q.id] ?? ''}
+          onChange={(e) => setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))}
+          style={{ ...fieldStyle, resize: 'vertical', fontFamily: 'inherit' }}
+        />
+      );
+    }
     if (q.type === 'boolean') {
       const value = answers[q.id];
       const option = (label: string, answer: 'Yes' | 'No') => (
@@ -146,7 +187,7 @@ export function QuestionForm({ props }: ChartProps) {
             {!q.required && <span style={{ fontSize: 10, opacity: 0.45 }}>Optional</span>}
           </div>
           {field(q, i === questions.length - 1)}
-          {q.hint && q.type !== 'text' && q.type !== 'number' && <p style={{ fontSize: 11, opacity: 0.55, margin: '4px 0 0' }}>{q.hint}</p>}
+          {q.hint && q.type !== 'text' && q.type !== 'multiline' && q.type !== 'number' && <p style={{ fontSize: 11, opacity: 0.55, margin: '4px 0 0' }}>{q.hint}</p>}
         </div>
       ))}
       <button
