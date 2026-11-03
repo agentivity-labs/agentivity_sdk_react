@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } from 'react';
 
+/** The words of a failed dictation, in the app's language. */
+export interface VoiceProblemTexts {
+  notHeard?: string;
+  noMic?: string;
+  noMicHow?: string;
+  tryAgain?: string;
+}
+
 export interface ChatInputProps {
   /** Called when the user submits. `attachments` is cleared after the callback runs. */
   onSend: (text: string, attachments: File[]) => void;
@@ -40,8 +48,12 @@ export interface ChatInputProps {
    * on a capability check (e.g. `client.voice.checkStatus()`).
    */
   onTranscribeAudio?: (audio: Blob, mimeType: string) => Promise<string | undefined>;
-  /** What the field says under it when dictation fails: nothing was heard, or the mic could not be used. */
-  voiceProblemTexts?: { notHeard?: string; noMic?: string };
+  /**
+   * What the field says when dictation fails: `notHeard` under it (nothing heard, or the transcription failed); when the mic
+   * could not be opened, a card titled `noMic` that says how to allow it (`noMicHow`) and opens it again (`tryAgain`). Nothing
+   * can ask again once the mic was refused: only the person can allow it, in the browser.
+   */
+  voiceProblemTexts?: VoiceProblemTexts;
   /** Shows the attachment button. */
   enableAttachments?: boolean;
   /** File extensions accepted by the picker (e.g. `['png', 'jpg']`). Omit to accept everything. */
@@ -86,6 +98,8 @@ export function ChatInput({
   const [isTranscribing, setIsTranscribing] = useState(false);
   // A dictation that failed says so under the field, until the next try or a word typed: a mic that just stops looks broken.
   const [voiceProblem, setVoiceProblem] = useState<string>();
+  // The mic could not be opened: a card says how to allow it, and opens it again in one tap.
+  const [micBlocked, setMicBlocked] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
@@ -135,6 +149,7 @@ export function ChatInput({
       return;
     }
     setVoiceProblem(undefined);
+    setMicBlocked(false);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream);
@@ -169,7 +184,7 @@ export function ChatInput({
       setIsRecording(true);
     } catch (error) {
       if (typeof console !== 'undefined') console.warn('Could not start audio recording', error);
-      setVoiceProblem(voiceProblemTexts?.noMic ?? 'The mic could not be used. Allow it, or type your message.');
+      setMicBlocked(true);
     }
   }, [isRecording, onTranscribeAudio, voiceProblemTexts]);
 
@@ -204,6 +219,27 @@ export function ChatInput({
         rows={minRows}
         style={{ maxHeight: `${maxRows * 1.4}em` }}
       />
+
+      {micBlocked && (
+        <div className="ag-chat-input__mic-blocked" role="status">
+          <span className="ag-chat-input__mic-blocked-icon" aria-hidden="true">
+            🎙️
+          </span>
+          <div className="ag-chat-input__mic-blocked-body">
+            <strong>{voiceProblemTexts?.noMic ?? 'The mic is blocked'}</strong>
+            <span>
+              {voiceProblemTexts?.noMicHow ??
+                'Your browser blocks the mic for this site. Click the icon left of the address, set Microphone to Allow, then try again.'}
+            </span>
+            <button type="button" className="ag-chat-input__mic-try-again" onClick={() => void toggleRecording()}>
+              {voiceProblemTexts?.tryAgain ?? 'Try again'}
+            </button>
+          </div>
+          <button type="button" className="ag-chat-input__mic-blocked-close" aria-label="Close" onClick={() => setMicBlocked(false)}>
+            ×
+          </button>
+        </div>
+      )}
 
       {voiceProblem && (
         <p className="ag-chat-input__problem" role="status">

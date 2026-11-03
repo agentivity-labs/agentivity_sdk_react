@@ -112,7 +112,7 @@ export type { ActiveChatMember, TeamMemberStatus, WorkflowStepStatus } from './c
 export { ChatDiscussion } from './chat/components/ChatDiscussion.js';
 export type { ChatDiscussionProps } from './chat/components/ChatDiscussion.js';
 export { ChatInput } from './chat/components/ChatInput.js';
-export type { ChatInputProps } from './chat/components/ChatInput.js';
+export type { ChatInputProps, VoiceProblemTexts } from './chat/components/ChatInput.js';
 export { ChatMessageBubble } from './chat/components/ChatMessageBubble.js';
 export type { ChatMessageBubbleProps } from './chat/components/ChatMessageBubble.js';
 export { ChatConnectionNotice, describeConnection } from './chat/components/ChatConnectionNotice.js';

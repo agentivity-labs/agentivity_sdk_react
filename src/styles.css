@@ -1421,6 +1421,54 @@ button.ag-team-progress__line:focus-visible {
   color: #b91c1c;
 }
 
+.ag-chat-input__mic-blocked {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 8px 6px 6px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(185, 28, 28, 0.25);
+  background: rgba(254, 226, 226, 0.45);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.ag-chat-input__mic-blocked-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ag-chat-input__mic-blocked-body strong {
+  font-size: 13px;
+}
+
+.ag-chat-input__mic-blocked-body span {
+  color: var(--ag-on-surface-variant, #475569);
+}
+
+.ag-chat-input__mic-try-again {
+  align-self: flex-start;
+  margin-top: 4px;
+  border: none;
+  background: none;
+  padding: 2px 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--ag-primary, #2563eb);
+  cursor: pointer;
+}
+
+.ag-chat-input__mic-blocked-close {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--ag-on-surface-variant, #475569);
+}
+
 .ag-chat-input__field {
   border: none;
   outline: none;

@@ -3,7 +3,7 @@ import type { ChatController } from '../chat-controller.js';
 import type { ChatHilGate, ChatMessage } from '../chat-models.js';
 import { isDisplayWidget, type AgUiWidgetRegistry } from '../../artifacts/widget-registry.js';
 import { ChatMessageBubble } from './ChatMessageBubble.js';
-import { ChatInput } from './ChatInput.js';
+import { ChatInput, type VoiceProblemTexts } from './ChatInput.js';
 import { ChatActiveMemberIndicator } from './ChatActiveMemberIndicator.js';
 import { ChatTeamProgress, type ChatTeamProgressTexts } from './ChatTeamProgress.js';
 import { ChatActivityIndicator, type ChatActivity, type ChatActivityStyle } from './ChatActivityIndicator.js';
@@ -113,7 +113,7 @@ export interface ChatDiscussionProps {
   enableVoice?: boolean;
   onTranscribeAudio?: (audio: Blob, mimeType: string) => Promise<string | undefined>;
   /** What the field says when dictation fails: see `ChatInput`'s `voiceProblemTexts`. */
-  voiceProblemTexts?: { notHeard?: string; noMic?: string };
+  voiceProblemTexts?: VoiceProblemTexts;
   enableAttachments?: boolean;
   acceptedAttachmentExtensions?: string[];
   className?: string;

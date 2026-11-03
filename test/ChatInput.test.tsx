@@ -39,13 +39,21 @@ describe('ChatInput', () => {
     expect(onSend).not.toHaveBeenCalled();
   });
 
-  it('says so under the field when the mic cannot be used, and forgets it once the person types', async () => {
-    Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: { getUserMedia: vi.fn().mockRejectedValue(new Error('NotAllowedError')) } });
+  it('a mic that cannot be opened shows a card: how to allow it, Try again that asks again, and a close button', async () => {
+    const getUserMedia = vi.fn().mockRejectedValue(new Error('NotAllowedError'));
+    Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: { getUserMedia } });
     const user = userEvent.setup();
     render(<ChatInput onSend={vi.fn()} onTranscribeAudio={vi.fn()} />);
     await user.click(screen.getByRole('button', { name: /record voice message/i }));
-    expect(await screen.findByRole('status')).toHaveTextContent('The mic could not be used.');
-    await user.type(screen.getByPlaceholderText('Type a message…'), 'hi');
+    const card = await screen.findByRole('status');
+    expect(card).toHaveTextContent('The mic is blocked');
+    expect(card).toHaveTextContent('set Microphone to Allow');
+
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(getUserMedia).toHaveBeenCalledTimes(2);
+    expect(await screen.findByRole('status')).toHaveTextContent('The mic is blocked');
+
+    await user.click(screen.getByRole('button', { name: 'Close' }));
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
