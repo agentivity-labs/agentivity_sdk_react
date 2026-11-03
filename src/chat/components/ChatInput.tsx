@@ -5,6 +5,9 @@ export interface VoiceProblemTexts {
   notHeard?: string;
   noMic?: string;
   noMicHow?: string;
+  /** The title of the card when the device has no mic at all, and what to do then. */
+  micMissing?: string;
+  micMissingHow?: string;
   tryAgain?: string;
 }
 
@@ -98,8 +101,8 @@ export function ChatInput({
   const [isTranscribing, setIsTranscribing] = useState(false);
   // A dictation that failed says so under the field, until the next try or a word typed: a mic that just stops looks broken.
   const [voiceProblem, setVoiceProblem] = useState<string>();
-  // The mic could not be opened: a card says how to allow it, and opens it again in one tap.
-  const [micBlocked, setMicBlocked] = useState(false);
+  // The mic could not be opened: a card says why (blocked, or no mic at all) and how to fix it, and opens it again in one tap.
+  const [micProblem, setMicProblem] = useState<'blocked' | 'missing'>();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
@@ -149,7 +152,7 @@ export function ChatInput({
       return;
     }
     setVoiceProblem(undefined);
-    setMicBlocked(false);
+    setMicProblem(undefined);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream);
@@ -184,7 +187,9 @@ export function ChatInput({
       setIsRecording(true);
     } catch (error) {
       if (typeof console !== 'undefined') console.warn('Could not start audio recording', error);
-      setMicBlocked(true);
+      // A device without any mic is told so, not that its mic is blocked.
+      const name = error instanceof Error || (typeof DOMException !== 'undefined' && error instanceof DOMException) ? (error as Error).name : '';
+      setMicProblem(name === 'NotFoundError' || name === 'DevicesNotFoundError' ? 'missing' : 'blocked');
     }
   }, [isRecording, onTranscribeAudio, voiceProblemTexts]);
 
@@ -220,22 +225,24 @@ export function ChatInput({
         style={{ maxHeight: `${maxRows * 1.4}em` }}
       />
 
-      {micBlocked && (
+      {micProblem && (
         <div className="ag-chat-input__mic-blocked" role="status">
           <span className="ag-chat-input__mic-blocked-icon" aria-hidden="true">
             🎙️
           </span>
           <div className="ag-chat-input__mic-blocked-body">
-            <strong>{voiceProblemTexts?.noMic ?? 'The mic is blocked'}</strong>
+            <strong>{micProblem === 'missing' ? (voiceProblemTexts?.micMissing ?? 'No mic found') : (voiceProblemTexts?.noMic ?? 'The mic is blocked')}</strong>
             <span>
-              {voiceProblemTexts?.noMicHow ??
-                'Your browser blocks the mic for this site. Click the icon left of the address, set Microphone to Allow, then try again.'}
+              {micProblem === 'missing'
+                ? (voiceProblemTexts?.micMissingHow ?? 'Plug in a mic or a headset, then try again.')
+                : (voiceProblemTexts?.noMicHow ??
+                  'Your browser blocks the mic for this site. Click the icon left of the address, set Microphone to Allow, then try again.')}
             </span>
             <button type="button" className="ag-chat-input__mic-try-again" onClick={() => void toggleRecording()}>
               {voiceProblemTexts?.tryAgain ?? 'Try again'}
             </button>
           </div>
-          <button type="button" className="ag-chat-input__mic-blocked-close" aria-label="Close" onClick={() => setMicBlocked(false)}>
+          <button type="button" className="ag-chat-input__mic-blocked-close" aria-label="Close" onClick={() => setMicProblem(undefined)}>
             ×
           </button>
         </div>

@@ -57,6 +57,17 @@ describe('ChatInput', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
+  it('a device without any mic is told so, not that its mic is blocked', async () => {
+    const missing = Object.assign(new Error('Requested device not found'), { name: 'NotFoundError' });
+    Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: { getUserMedia: vi.fn().mockRejectedValue(missing) } });
+    const user = userEvent.setup();
+    render(<ChatInput onSend={vi.fn()} onTranscribeAudio={vi.fn()} />);
+    await user.click(screen.getByRole('button', { name: /record voice message/i }));
+    const card = await screen.findByRole('status');
+    expect(card).toHaveTextContent('No mic found');
+    expect(card).not.toHaveTextContent('The mic is blocked');
+  });
+
   it('says so under the field when what was said could not be turned into text', async () => {
     class Recorder {
       mimeType = 'audio/webm';
