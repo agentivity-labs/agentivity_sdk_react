@@ -5,6 +5,7 @@ import { PieChart } from '../src/artifacts/components/charts/PieChart.js';
 import { MetricCard } from '../src/artifacts/components/data/MetricCard.js';
 import { StatGrid } from '../src/artifacts/components/data/StatGrid.js';
 import { StatusCard } from '../src/artifacts/components/status/StatusCard.js';
+import { KeyValue } from '../src/artifacts/components/data/KeyValue.js';
 import { JsonViewer } from '../src/artifacts/components/code/JsonViewer.js';
 import { ChoiceCard } from '../src/artifacts/components/interaction/ChoiceCard.js';
 import { buildArtifactsRegistry } from '../src/artifacts/registry.js';
@@ -69,5 +70,15 @@ describe('artifact widgets smoke test', () => {
   it('ArtifactViewer shows a fallback for an unknown type', () => {
     render(<ArtifactViewer type="Nonexistent" props={{}} />);
     expect(screen.getByText(/Unknown artifact type: Nonexistent/)).toBeInTheDocument();
+  });
+});
+
+describe('the header of a card', () => {
+  it('names no kind of widget to the person, and has none when the agent gave no title', () => {
+    const { container } = render(<KeyValue props={{ items: [{ key: 'Monday', value: 'Squat, row' }] }} />);
+    expect(screen.queryByText('Key–Value')).toBeNull();
+    expect(screen.queryByText('Properties')).toBeNull();
+    expect(screen.getByText('Monday')).toBeInTheDocument();
+    expect(container.firstElementChild!.children).toHaveLength(1);
   });
 });

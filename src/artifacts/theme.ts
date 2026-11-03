@@ -103,6 +103,11 @@ export interface ArtifactsThemeData {
   badgeBackground?: string;
   /** Text color of the type badge chip. */
   badgeForeground?: string;
+  /**
+   * Shows the kind of each card ("Bar Chart", "Key–Value") beside its title: words for the one who builds the app, not for the
+   * people who use it. Off by default.
+   */
+  showTypeBadge?: boolean;
 
   /** Base font size (px) for axis labels, legend dots, subtitles. */
   labelFontSize: number;

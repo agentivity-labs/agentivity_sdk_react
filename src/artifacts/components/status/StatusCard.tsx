@@ -22,7 +22,7 @@ export function StatusCard({ props }: ChartProps) {
   const style = STATUS_STYLE[status] ?? DEFAULT_STYLE;
 
   return (
-    <ArtifactCard title={title} type={style.label}>
+    <ArtifactCard title={title} label={style.label}>
       <div
         style={{
           background: withAlpha(style.color, 0.08),

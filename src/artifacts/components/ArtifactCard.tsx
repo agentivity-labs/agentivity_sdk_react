@@ -7,8 +7,10 @@ export interface ArtifactCardProps {
   title: string;
   children: ReactNode;
   icon?: ReactNode;
-  /** Optional type badge shown next to the title (e.g. "Bar Chart"). */
+  /** The kind of card ("Bar Chart"), beside the title only when the theme says showTypeBadge: words for the one who builds the app. */
   type?: string;
+  /** What the card says of itself beside its title (a status, a language), always shown. */
+  label?: string;
   /** When set, a copy button copies this string to the clipboard. */
   copyValue?: string;
   actions?: ReactNode;
@@ -22,13 +24,16 @@ export interface ArtifactCardProps {
  * visual properties (radius, background, border, shadow, typography) are
  * driven by {@link ArtifactsThemeData} via {@link useArtifactsTheme}.
  */
-export function ArtifactCard({ title, children, icon, type, copyValue, actions, padding, className }: ArtifactCardProps) {
+export function ArtifactCard({ title, children, icon, type, label, copyValue, actions, padding, className }: ArtifactCardProps) {
   const theme = useArtifactsTheme();
   const bg = theme.cardBackground ?? 'var(--ag-surface, #ffffff)';
   const borderColor = theme.cardBorderColor ?? 'var(--ag-outline-variant, #e2e8f0)';
   const badgeBg = theme.badgeBackground ?? 'var(--ag-primary-container, #dbeafe)';
   const badgeFg = theme.badgeForeground ?? 'var(--ag-primary, #2563eb)';
   const onBg = theme.cardBackground && isDarkColor(theme.cardBackground) ? '#ffffff' : '#000000';
+  const badge = label ?? (theme.showTypeBadge ? type : undefined);
+  // A card the agent gave no title, with nothing else in its header, has no header.
+  const header = !!title.trim() || !!icon || !!badge || !!actions || copyValue != null;
 
   return (
     <div
@@ -42,7 +47,8 @@ export function ArtifactCard({ title, children, icon, type, copyValue, actions, 
         maxWidth: '100%',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', padding: '8px 12px', gap: 6, minWidth: 0 }}>
+      {header && (
+        <div style={{ display: 'flex', alignItems: 'center', padding: '8px 12px', gap: 6, minWidth: 0 }}>
         {icon}
         <span
           style={{
@@ -58,7 +64,7 @@ export function ArtifactCard({ title, children, icon, type, copyValue, actions, 
         >
           {title}
         </span>
-        {type && (
+        {badge && (
           <span
             style={{
               fontSize: effectiveLabelFontSize(theme),
@@ -71,14 +77,15 @@ export function ArtifactCard({ title, children, icon, type, copyValue, actions, 
               whiteSpace: 'nowrap',
             }}
           >
-            {type}
+            {badge}
           </span>
         )}
         <span style={{ flex: 1 }} />
         {actions}
         {copyValue != null && <CopyButton value={copyValue} onBg={onBg} accent={badgeFg} />}
-      </div>
-      <div style={{ height: 1, background: borderColor }} />
+        </div>
+      )}
+      {header && <div style={{ height: 1, background: borderColor }} />}
       <div style={{ padding: padding ?? effectiveCardPadding(theme) }}>{children}</div>
     </div>
   );

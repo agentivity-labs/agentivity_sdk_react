@@ -20,7 +20,7 @@ function asItems(raw: unknown): KeyValueItem[] {
  * Agent props: `{ title, items: [{ key, value, highlight? }], dividers? }`.
  */
 export function KeyValue({ props }: ChartProps) {
-  const title = typeof props['title'] === 'string' ? props['title'] : 'Properties';
+  const title = typeof props['title'] === 'string' ? props['title'] : '';
   const items = asItems(props['items']);
   const showDividers = props['dividers'] !== false;
 

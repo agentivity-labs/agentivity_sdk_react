@@ -30,7 +30,7 @@ export function CodeBlock({ props, theme: colorTheme = 'dark' }: ChartProps & { 
   }, [code, language]);
 
   return (
-    <ArtifactCard title={title} type={language} copyValue={code} padding="0">
+    <ArtifactCard title={title} label={language} copyValue={code} padding="0">
       <div className={`ag-code-block ag-code-block--${colorTheme}`} style={{ maxHeight: maxLines * 18, overflow: 'auto', borderRadius: '0 0 5px 5px' }}>
         <pre style={{ margin: 0, padding: 12 }}>
           <code
