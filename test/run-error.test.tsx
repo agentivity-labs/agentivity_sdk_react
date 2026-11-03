@@ -74,3 +74,16 @@ describe('the error notice', () => {
     expect(describeRunError({ message: '' }).title).toBe('Something went wrong');
   });
 });
+
+describe('what the provider said', () => {
+  it('is folded under Details: the person reads a plain line and what to do', () => {
+    const c = new ChatController();
+    render(<ChatDiscussion controller={c} onSend={() => undefined} enableVoice={false} />);
+    feed(c, { type: 'RUN_ERROR', message: 'Head Coach: LLM API error (BadRequest): Provider returned error' });
+
+    expect(screen.getByText('Something went wrong')).toBeTruthy();
+    expect(screen.getByText('Send your message again in a moment.')).toBeTruthy();
+    const detail = screen.getByText('Head Coach: LLM API error (BadRequest): Provider returned error');
+    expect(detail.closest('details')?.open).toBe(false);
+  });
+});

@@ -17,7 +17,7 @@ const KNOWN: Record<string, { title: string; hint?: string }> = {
 
 /** The headline and next step for a run error: known codes are worded for the end user, anything else is a plain "Something went wrong". */
 export function describeRunError(error: AgUiRunError): { title: string; hint?: string } {
-  return (error.code && KNOWN[error.code]) || { title: 'Something went wrong' };
+  return (error.code && KNOWN[error.code]) || { title: 'Something went wrong', hint: 'Send your message again in a moment.' };
 }
 
 /**
@@ -32,7 +32,13 @@ export function ChatRunError({ error, onDismiss, className }: ChatRunErrorProps)
       <div className="ag-chat-run-error__body">
         <div className="ag-chat-run-error__title">{title}</div>
         {hint && <div className="ag-chat-run-error__hint">{hint}</div>}
-        {error.message && <div className="ag-chat-run-error__detail">{error.message}</div>}
+        {/* What the provider or the platform said is for whoever runs the app, not for the person: folded, one click away. */}
+        {error.message && (
+          <details className="ag-chat-run-error__more">
+            <summary>Details</summary>
+            <div className="ag-chat-run-error__detail">{error.message}</div>
+          </details>
+        )}
       </div>
       {onDismiss && (
         <button type="button" className="ag-chat-run-error__dismiss" onClick={onDismiss} aria-label="Dismiss">

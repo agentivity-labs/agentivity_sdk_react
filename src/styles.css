@@ -294,6 +294,16 @@
   margin-top: 2px;
 }
 
+.ag-chat-run-error__more {
+  margin-top: 4px;
+}
+
+.ag-chat-run-error__more > summary {
+  cursor: pointer;
+  font-size: 11px;
+  opacity: 0.6;
+}
+
 .ag-chat-run-error__detail {
   margin-top: 4px;
   font-size: 11px;
