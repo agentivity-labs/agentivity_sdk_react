@@ -1415,6 +1415,12 @@ button.ag-team-progress__line:focus-visible {
   line-height: 1;
 }
 
+.ag-chat-input__problem {
+  margin: 0;
+  font-size: 12px;
+  color: #b91c1c;
+}
+
 .ag-chat-input__field {
   border: none;
   outline: none;

@@ -40,6 +40,8 @@ export interface ChatInputProps {
    * on a capability check (e.g. `client.voice.checkStatus()`).
    */
   onTranscribeAudio?: (audio: Blob, mimeType: string) => Promise<string | undefined>;
+  /** What the field says under it when dictation fails: nothing was heard, or the mic could not be used. */
+  voiceProblemTexts?: { notHeard?: string; noMic?: string };
   /** Shows the attachment button. */
   enableAttachments?: boolean;
   /** File extensions accepted by the picker (e.g. `['png', 'jpg']`). Omit to accept everything. */
@@ -73,6 +75,7 @@ export function ChatInput({
   isHil = false,
   enableVoice = true,
   onTranscribeAudio,
+  voiceProblemTexts,
   enableAttachments = true,
   acceptedExtensions,
   className,
@@ -81,6 +84,8 @@ export function ChatInput({
   const [attachments, setAttachments] = useState<File[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  // A dictation that failed says so under the field, until the next try or a word typed: a mic that just stops looks broken.
+  const [voiceProblem, setVoiceProblem] = useState<string>();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
@@ -124,10 +129,12 @@ export function ChatInput({
 
   const toggleRecording = useCallback(async () => {
     if (!onTranscribeAudio) return;
+    const notHeard = voiceProblemTexts?.notHeard ?? 'Could not hear that. Try again, or type it.';
     if (isRecording) {
       mediaRecorderRef.current?.stop();
       return;
     }
+    setVoiceProblem(undefined);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream);
@@ -141,14 +148,19 @@ export function ChatInput({
         const mimeType = recorder.mimeType || 'audio/webm';
         const blob = new Blob(chunksRef.current, { type: mimeType });
         chunksRef.current = [];
-        if (blob.size === 0) return;
+        if (blob.size === 0) {
+          setVoiceProblem(notHeard);
+          return;
+        }
         setIsTranscribing(true);
         onTranscribeAudio(blob, mimeType)
           .then((transcribed) => {
-            if (transcribed) setText((prev) => (prev ? `${prev} ${transcribed}` : transcribed));
+            if (transcribed?.trim()) setText((prev) => (prev ? `${prev} ${transcribed}` : transcribed));
+            else setVoiceProblem(notHeard);
           })
           .catch((error: unknown) => {
             if (typeof console !== 'undefined') console.warn('onTranscribeAudio failed', error);
+            setVoiceProblem(notHeard);
           })
           .finally(() => setIsTranscribing(false));
       };
@@ -157,8 +169,9 @@ export function ChatInput({
       setIsRecording(true);
     } catch (error) {
       if (typeof console !== 'undefined') console.warn('Could not start audio recording', error);
+      setVoiceProblem(voiceProblemTexts?.noMic ?? 'The mic could not be used. Allow it in the browser, or type your message.');
     }
-  }, [isRecording, onTranscribeAudio]);
+  }, [isRecording, onTranscribeAudio, voiceProblemTexts]);
 
   const voiceUnavailable = !onTranscribeAudio;
   const canSend = text.trim().length > 0 && !disabled;
@@ -181,13 +194,22 @@ export function ChatInput({
       <textarea
         className="ag-chat-input__field"
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        onChange={(e) => {
+          setText(e.target.value);
+          setVoiceProblem(undefined);
+        }}
         onKeyDown={handleKeyDown}
         placeholder={isHil ? hilHint : hint}
         disabled={disabled}
         rows={minRows}
         style={{ maxHeight: `${maxRows * 1.4}em` }}
       />
+
+      {voiceProblem && (
+        <p className="ag-chat-input__problem" role="status">
+          {voiceProblem}
+        </p>
+      )}
 
       <div className="ag-chat-input__toolbar">
         <div className="ag-chat-input__toolbar-leading">
