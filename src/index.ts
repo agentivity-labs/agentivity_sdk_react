@@ -210,6 +210,7 @@ export { Svg } from './artifacts/components/svg/Svg.js';
 
 // ── Artifacts: media ──────────────────────────────────────────────────────────
 export { ImageGallery } from './artifacts/components/media/ImageGallery.js';
+export { setArtifactInstanceUrl, artifactDownloadUrl } from './artifacts/components/ArtifactImage.js';
 export { ArtifactImage, safeImageUrl, safeHttpUrl } from './artifacts/components/ArtifactImage.js';
 
 // ── Artifacts: interaction ────────────────────────────────────────────────────

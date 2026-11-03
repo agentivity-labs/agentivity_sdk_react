@@ -5,10 +5,25 @@ import { useEffect, useState, type CSSProperties } from 'react';
  * `data:image/` only. Anything else (`javascript:`, `file:`, a relative path, SVG data that can carry script)
  * yields `undefined`, which renders the fallback instead.
  */
+/** Where the instance is, for the pictures it keeps itself (`/api/v1/resources/…`). Set by `AgentivityProvider` from its client. */
+let instanceBaseUrl: string | undefined;
+
+/** Says where the instance is, for its own pictures. `AgentivityProvider` does it; an app without it may. */
+export function setArtifactInstanceUrl(baseUrl: string | undefined): void {
+  instanceBaseUrl = baseUrl?.trim() || undefined;
+}
+
+/** The address that saves `url` rather than shows it: the instance's own pictures are asked as a download. */
+export function artifactDownloadUrl(url: string): string {
+  return url.includes('/api/v1/resources/') ? `${url}${url.includes('?') ? '&' : '?'}download=true` : url;
+}
+
 export function safeImageUrl(raw: unknown): string | undefined {
   if (typeof raw !== 'string') return undefined;
   const url = raw.trim();
   if (/^https?:\/\//i.test(url)) return url;
+  // A picture the instance keeps (a step's image): read from the instance, when it is known.
+  if (instanceBaseUrl && url.startsWith('/api/v1/resources/')) return instanceBaseUrl.replace(/\/+$/, '') + url;
   if (/^data:image\/(png|jpe?g|gif|webp|avif);base64,/i.test(url)) return url;
   return undefined;
 }

@@ -1,3 +1,4 @@
+import { setArtifactInstanceUrl } from '../artifacts/components/ArtifactImage.js';
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { AgentivityClient } from '../client/agentivity-client.js';
 import { AgentivityPlatformClient } from '../client/platform-client.js';
@@ -38,6 +39,8 @@ export function AgentivityProvider({ client, baseUrl, apiKey, waitNotice, childr
     }
     return new AgentivityPlatformClient({ baseUrl, apiKey });
   }, [client, baseUrl, apiKey]);
+  // The pictures the instance keeps (a step's image in the chat) are read from it.
+  setArtifactInstanceUrl(baseUrl ?? resolved.baseUrl);
 
   const notice = waitNotice === false ? undefined : (waitNotice ?? {});
   return (

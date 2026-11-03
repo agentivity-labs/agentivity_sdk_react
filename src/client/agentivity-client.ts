@@ -58,6 +58,11 @@ export class AgentivityClient {
    * `apiKey`: on an instance that asks to sign in, the key a person made for this program (`agv_…`) — see {@link AgentivityHttpCore}.
    * `workspaceStartWaitMs`: how long a read waits for a hosted workspace that wakes up (two minutes unless said).
    */
+  /** The address of the instance this client talks to. */
+  get baseUrl(): string {
+    return this.http.instanceUrl;
+  }
+
   constructor(args: { baseUrl: string; fetchImpl?: typeof fetch; apiKey?: string; workspaceStartWaitMs?: number }) {
     const monitor = new ConnectionMonitor({ probe: () => this.http.probe() });
     this.connection = monitor;

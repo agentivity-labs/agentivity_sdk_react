@@ -1,5 +1,5 @@
 import { ArtifactCard } from '../ArtifactCard.js';
-import { ArtifactImage, safeHttpUrl, safeImageUrl } from '../ArtifactImage.js';
+import { ArtifactImage, artifactDownloadUrl, safeHttpUrl, safeImageUrl } from '../ArtifactImage.js';
 import type { ChartProps } from '../charts/BarChart.js';
 
 interface GalleryImage {
@@ -8,6 +8,8 @@ interface GalleryImage {
   caption?: string;
   /** Where the picture comes from or leads to — makes it a link. */
   href?: string;
+  /** The name to save it under: given, the picture has a Download button (what a workflow's Image Viewer sends). */
+  download?: string;
 }
 
 function asImages(raw: unknown): GalleryImage[] {
@@ -19,6 +21,7 @@ function asImages(raw: unknown): GalleryImage[] {
       alt: typeof i['alt'] === 'string' ? i['alt'] : undefined,
       caption: typeof i['caption'] === 'string' ? i['caption'] : undefined,
       href: safeHttpUrl(i['href']),
+      download: typeof i['download'] === 'string' ? i['download'] : undefined,
     }));
 }
 
@@ -50,6 +53,11 @@ export function ImageGallery({ props }: ChartProps) {
                 </a>
               ) : (
                 picture
+              )}
+              {image.download && image.url && (
+                <a href={artifactDownloadUrl(image.url)} download={image.download} target="_blank" rel="noopener noreferrer" className="ag-artifact-download" style={{ display: 'inline-block', marginTop: 6, fontSize: 12 }}>
+                  Download
+                </a>
               )}
               {image.caption && <figcaption style={{ marginTop: 6, fontSize: 11, opacity: 0.65, lineHeight: 1.35 }}>{image.caption}</figcaption>}
             </figure>

@@ -40,6 +40,11 @@ export interface RequestOptions {
  */
 export class AgentivityHttpCore {
   private readonly baseUrl: string;
+
+  /** The address of the instance, as given (normalized). */
+  get instanceUrl(): string {
+    return this.baseUrl;
+  }
   readonly fetchImpl: typeof fetch;
   /** Told whenever a request gets no answer (the server cannot be reached) and whenever one does. */
   readonly monitor?: ConnectionMonitor;
