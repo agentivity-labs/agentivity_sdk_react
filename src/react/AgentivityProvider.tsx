@@ -1,7 +1,8 @@
 import { setArtifactInstanceUrl } from '../artifacts/components/ArtifactImage.js';
-import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import { createContext, useContext, useMemo, useRef, type ReactNode } from 'react';
 import { AgentivityClient } from '../client/agentivity-client.js';
 import { AgentivityPlatformClient } from '../client/platform-client.js';
+import type { UserToken } from '../client/http-core.js';
 import { WaitNotice, type WaitTexts } from '../chat/components/WaitNotice.js';
 
 const AgentivityContext = createContext<AgentivityClient | undefined>(undefined);
@@ -12,6 +13,11 @@ export interface AgentivityProviderProps {
   baseUrl?: string;
   /** With `baseUrl`, on an instance that asks to sign in: a key for a web page (`agp_…`). Never a secret key (`agv_…`) in a page. */
   apiKey?: string;
+  /**
+   * For an App whose users are its own: asks the App's server for the token of the user of the page (`agu_…`, see
+   * `client.setUserToken`). Asked at the first request, then a minute before each token ends; each user has their own conversations.
+   */
+  getUserToken?: () => Promise<UserToken>;
   /**
    * "Just a moment…" floating at the top while a call waits (`WaitNotice`): the first calls to a hosted workspace that wakes up take
    * most of a minute. On unless `false`; its words, where it floats and what "Try again" does can be given.
@@ -31,14 +37,22 @@ export interface AgentivityProviderProps {
  * </AgentivityProvider>
  * ```
  */
-export function AgentivityProvider({ client, baseUrl, apiKey, waitNotice, children }: AgentivityProviderProps): ReactNode {
+export function AgentivityProvider({ client, baseUrl, apiKey, getUserToken, waitNotice, children }: AgentivityProviderProps): ReactNode {
+  // The last function given: a new one at each render does not make a new client.
+  const tokenSource = useRef(getUserToken);
+  tokenSource.current = getUserToken;
+  const asksTokens = getUserToken !== undefined;
   const resolved = useMemo(() => {
-    if (client) return client;
-    if (!baseUrl) {
-      throw new Error('AgentivityProvider requires either `client` or `baseUrl`.');
+    let made = client;
+    if (!made) {
+      if (!baseUrl) {
+        throw new Error('AgentivityProvider requires either `client` or `baseUrl`.');
+      }
+      made = new AgentivityPlatformClient({ baseUrl, apiKey });
     }
-    return new AgentivityPlatformClient({ baseUrl, apiKey });
-  }, [client, baseUrl, apiKey]);
+    if (asksTokens) made.setUserToken(null, () => tokenSource.current!());
+    return made;
+  }, [client, baseUrl, apiKey, asksTokens]);
   // The pictures the instance keeps (a step's image in the chat) are read from it.
   setArtifactInstanceUrl(baseUrl ?? resolved.baseUrl);
 

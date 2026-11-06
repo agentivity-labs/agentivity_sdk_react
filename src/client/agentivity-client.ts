@@ -1,4 +1,4 @@
-import { AgentivityHttpCore } from './http-core.js';
+import { AgentivityHttpCore, type RenewUserToken, type UserToken } from './http-core.js';
 import { EntitiesApi } from './api/entities-api.js';
 import { IconsApi } from './api/icons-api.js';
 import { RunsApi } from './api/runs-api.js';
@@ -7,6 +7,7 @@ import { UploadsApi } from './api/uploads-api.js';
 import { ConversationsApi } from './api/conversations-api.js';
 import { AgenticFoldersApi } from './api/agentic-folders-api.js';
 import { DataTablesApi } from './api/datatables-api.js';
+import { AppsApi } from './api/apps-api.js';
 import { ConnectionMonitor } from './connection-monitor.js';
 import type { SlowCalls } from './slow-calls.js';
 
@@ -53,6 +54,8 @@ export class AgentivityClient {
   readonly agenticFolders: AgenticFoldersApi;
   /** Shared Data Table rows — read what a Team's workflow wrote, or write back where the app owns the data. */
   readonly dataTables: DataTablesApi;
+  /** The users of an App: a person of the instance signs in through it (see also {@link setUserToken}). */
+  readonly apps: AppsApi;
 
   /**
    * `apiKey`: on an instance that asks to sign in, the key a person made for this program (`agv_…`) — see {@link AgentivityHttpCore}.
@@ -76,6 +79,16 @@ export class AgentivityClient {
     this.conversations = new ConversationsApi(this.http);
     this.agenticFolders = new AgenticFoldersApi(this.http);
     this.dataTables = new DataTablesApi(this.http);
+    this.apps = new AppsApi(this.http);
+  }
+
+  /**
+   * Speaks for a user of an App: each of them has their own conversations. The App's server gets their token (with its secret,
+   * never from a page); `renew` asks it for the next one, which the client does a minute before the end and when one is refused.
+   * See {@link AgentivityHttpCore.setUserToken}.
+   */
+  setUserToken(token: string | UserToken | null, renew?: RenewUserToken): void {
+    this.http.setUserToken(token, renew);
   }
 
   /** Exposes the underlying HTTP core — for advanced use only. */

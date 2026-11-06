@@ -4,13 +4,35 @@ import { SlowCalls } from './slow-calls.js';
 
 const API_V1 = '/api/v1';
 
-// Every request of the client carries the key, unless the caller gave its own Authorization.
-function withKey(fetchImpl: typeof fetch, apiKey: string): typeof fetch {
-  return (input, init) => {
-    const headers = new Headers(init?.headers);
-    if (!headers.has('Authorization')) headers.set('Authorization', `Bearer ${apiKey}`);
-    return fetchImpl(input, { ...init, headers });
-  };
+/**
+ * The token of a user of an App (`agu_…`), worth a few minutes: given by the App's server for one of its own users, or by
+ * signing in through the App for a person of the instance. `expiresAt`, when known, lets the client ask for the next one in time.
+ */
+export interface UserToken {
+  token: string;
+  expiresAt?: string | number | Date;
+}
+
+/** Asks for the next token of the user: the App's server again, or the instance for a person signed in through the App. */
+export type RenewUserToken = () => Promise<UserToken>;
+
+// A token is asked again this long before its end, so that no request goes with one about to end.
+const RENEW_BEFORE_MS = 60_000;
+
+function expiryOf(token: UserToken): number | undefined {
+  if (token.expiresAt === undefined) return undefined;
+  const at = token.expiresAt instanceof Date ? token.expiresAt.getTime() : typeof token.expiresAt === 'number' ? token.expiresAt : Date.parse(token.expiresAt);
+  return Number.isFinite(at) ? at : undefined;
+}
+
+// Whether the instance refused the request for its user token (wrong, or past its end), rather than for anything else.
+async function refusedToken(response: Response): Promise<boolean> {
+  if (response.status !== 401) return false;
+  try {
+    return ((await response.clone().json()) as { error?: string })?.error === 'invalid_user_token';
+  } catch {
+    return false;
+  }
 }
 
 function normalizeBaseUrl(url: string): string {
@@ -53,17 +75,76 @@ export class AgentivityHttpCore {
   /** Since when a call waits for its answer (see {@link SlowCalls}): what an app shows as "Just a moment…". */
   readonly slow = new SlowCalls();
 
+  /** The fetch given, without what the client adds: for a call that says its own Authorization. */
+  readonly plainFetch: typeof fetch;
+  private readonly apiKey?: string;
+  private userToken?: { token: string; expiresAt?: number };
+  private renewUserToken?: RenewUserToken;
+  private renewing?: Promise<string>;
+
   /**
    * `apiKey`: the key a person made for this program, on an instance that asks to sign in (`agv_…`); sent with every request as
-   * `Authorization: Bearer`. Never put a secret key in a web page: a page uses a key for a web page (`agp_…`), or none.
+   * `Authorization: Bearer`. Never put a secret key in a web page: a page uses a key for a web page (`agp_…`), or the token of
+   * its user ({@link setUserToken}).
    */
   constructor(args: { baseUrl: string; fetchImpl?: typeof fetch; monitor?: ConnectionMonitor; apiKey?: string; workspaceStartWaitMs?: number }) {
     this.baseUrl = normalizeBaseUrl(args.baseUrl);
     this.startWaitMs = args.workspaceStartWaitMs ?? WORKSPACE_START_WAIT_MS;
-    const fetchImpl = args.fetchImpl ?? globalThis.fetch.bind(globalThis);
-    const apiKey = args.apiKey?.trim();
-    this.fetchImpl = apiKey ? withKey(fetchImpl, apiKey) : fetchImpl;
+    this.plainFetch = args.fetchImpl ?? globalThis.fetch.bind(globalThis);
+    this.apiKey = args.apiKey?.trim() || undefined;
+    this.fetchImpl = this.authorized(this.plainFetch);
     this.monitor = args.monitor;
+  }
+
+  /**
+   * Speaks for a user of an App from now on: every request carries their token rather than the key. `renew` asks for the next
+   * one: a minute before its end, and when the instance refuses it (the request is then sent once more). Without a token yet,
+   * `renew` is asked for one at the first request. `null` and no `renew`: the client speaks for no user any more.
+   */
+  setUserToken(token: string | UserToken | null, renew?: RenewUserToken): void {
+    const given = typeof token === 'string' ? { token } : token;
+    this.userToken = given?.token ? { token: given.token, expiresAt: expiryOf(given) } : undefined;
+    this.renewUserToken = renew;
+    this.renewing = undefined;
+  }
+
+  /** The token of the user the client speaks for, if any. */
+  get currentUserToken(): string | undefined {
+    return this.userToken?.token;
+  }
+
+  // Every request of the client carries the user's token, or else the key, unless the caller gave its own Authorization.
+  private authorized(fetchImpl: typeof fetch): typeof fetch {
+    return async (input, init) => {
+      const headers = new Headers(init?.headers);
+      if (headers.has('Authorization')) return fetchImpl(input, init);
+      const credential = await this.credential();
+      if (credential) headers.set('Authorization', `Bearer ${credential}`);
+      const response = await fetchImpl(input, { ...init, headers });
+      if (!this.renewUserToken || !this.userToken || !(await refusedToken(response))) return response;
+      const again = new Headers(headers);
+      again.set('Authorization', `Bearer ${await this.renewNow()}`);
+      return fetchImpl(input, { ...init, headers: again });
+    };
+  }
+
+  private async credential(): Promise<string | undefined> {
+    if (this.renewUserToken && (!this.userToken || (this.userToken.expiresAt !== undefined && this.userToken.expiresAt - Date.now() < RENEW_BEFORE_MS))) return this.renewNow();
+    return this.userToken?.token ?? this.apiKey;
+  }
+
+  // One renewal at a time: the requests that wait for it all go with the token it brings.
+  private renewNow(): Promise<string> {
+    const renew = this.renewUserToken!;
+    this.renewing ??= renew()
+      .then((next) => {
+        this.userToken = { token: next.token, expiresAt: expiryOf(next) };
+        return next.token;
+      })
+      .finally(() => {
+        this.renewing = undefined;
+      });
+    return this.renewing;
   }
 
   /** Asks the server for anything (the icon catalog): true when ANY answer came back, even an error status; false when it cannot be reached. */
