@@ -19,6 +19,11 @@ export interface AgentivityProviderProps {
    */
   getUserToken?: () => Promise<UserToken>;
   /**
+   * For a demo App (a showcase, a public page): its id. Each browser gets an anonymous visitor of its own, kept between visits,
+   * with their own conversations; no key and no sign-in.
+   */
+  demoAppId?: string;
+  /**
    * "Just a moment…" floating at the top while a call waits (`WaitNotice`): the first calls to a hosted workspace that wakes up take
    * most of a minute. On unless `false`; its words, where it floats and what "Try again" does can be given.
    */
@@ -37,7 +42,7 @@ export interface AgentivityProviderProps {
  * </AgentivityProvider>
  * ```
  */
-export function AgentivityProvider({ client, baseUrl, apiKey, getUserToken, waitNotice, children }: AgentivityProviderProps): ReactNode {
+export function AgentivityProvider({ client, baseUrl, apiKey, getUserToken, demoAppId, waitNotice, children }: AgentivityProviderProps): ReactNode {
   // The last function given: a new one at each render does not make a new client.
   const tokenSource = useRef(getUserToken);
   tokenSource.current = getUserToken;
@@ -51,8 +56,9 @@ export function AgentivityProvider({ client, baseUrl, apiKey, getUserToken, wait
       made = new AgentivityPlatformClient({ baseUrl, apiKey });
     }
     if (asksTokens) made.setUserToken(null, () => tokenSource.current!());
+    else if (demoAppId) made.apps.visitDemo(demoAppId);
     return made;
-  }, [client, baseUrl, apiKey, asksTokens]);
+  }, [client, baseUrl, apiKey, asksTokens, demoAppId]);
   // The pictures the instance keeps (a step's image in the chat) are read from it.
   setArtifactInstanceUrl(baseUrl ?? resolved.baseUrl);
 

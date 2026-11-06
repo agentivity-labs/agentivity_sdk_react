@@ -73,7 +73,7 @@ export * from './client/api-contract.js';
 export { AgentivityHttpCore } from './client/http-core.js';
 export type { RequestOptions, UserToken, RenewUserToken } from './client/http-core.js';
 export { AppsApi } from './client/api/apps-api.js';
-export type { AppSignedIn } from './client/api/apps-api.js';
+export type { AppSignedIn, VisitorStorage } from './client/api/apps-api.js';
 
 // ── Client: domain models ────────────────────────────────────────────────────
 export * from './client/domain/execution-models.js';
