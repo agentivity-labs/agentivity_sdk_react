@@ -1,3 +1,4 @@
+import { DateField } from './Calendar.js';
 import { useState } from 'react';
 import { ArtifactCard } from '../ArtifactCard.js';
 import type { ChartProps } from '../charts/BarChart.js';
@@ -42,7 +43,7 @@ function asQuestions(raw: unknown): Question[] {
  * A boolean answer reads as "Yes"/"No"; a date answer as its ISO date (`2027-07-01`).
  *
  * Agent props: `{ title, questions: [{ id, label, hint?, required?, type? }], submitLabel? }`.
- * `type` is `'text'` (default), `'multiline'` (a longer free answer), `'date'` (a native date picker —
+ * `type` is `'text'` (default), `'multiline'` (a longer free answer), `'date'` (the calendar of Agentivity —
  * always use this for a question about a date, never a free-text field), `'number'`, `'boolean'`
  * (Yes/No), or `'choice'` (one of `options`, as buttons).
  */
@@ -154,16 +155,7 @@ export function QuestionForm({ props }: ChartProps) {
       );
     }
     if (q.type === 'date') {
-      return (
-        <input
-          type="date"
-          disabled={submitted}
-          value={answers[q.id] ?? ''}
-          onChange={(e) => setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))}
-          onKeyDown={onEnter}
-          style={fieldStyle}
-        />
-      );
+      return <DateField value={answers[q.id] || undefined} disabled={submitted} ariaLabel={q.label} onChange={(day) => setAnswers((prev) => ({ ...prev, [q.id]: day }))} />;
     }
     return (
       <input

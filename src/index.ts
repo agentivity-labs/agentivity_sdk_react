@@ -219,6 +219,8 @@ export { ArtifactImage, safeImageUrl, safeHttpUrl } from './artifacts/components
 export { ChoiceCard } from './artifacts/components/interaction/ChoiceCard.js';
 export { ConfirmCard } from './artifacts/components/interaction/ConfirmCard.js';
 export { DatePickerCard } from './artifacts/components/interaction/DatePickerCard.js';
+export { Calendar, DateField, dateText, isoDate, parseIsoDate } from './artifacts/components/interaction/Calendar.js';
+export type { CalendarProps, DateFieldProps } from './artifacts/components/interaction/Calendar.js';
 export { QuestionForm } from './artifacts/components/interaction/QuestionForm.js';
 export { RatingCard } from './artifacts/components/interaction/RatingCard.js';
 export { SummaryCard } from './artifacts/components/interaction/SummaryCard.js';

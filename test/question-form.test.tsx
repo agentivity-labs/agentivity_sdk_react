@@ -1,6 +1,12 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { QuestionForm } from '../src/artifacts/components/interaction/QuestionForm.js';
+import { isoDate } from '../src/artifacts/components/interaction/Calendar.js';
+
+function tomorrow(): Date {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+}
 
 describe('QuestionForm', () => {
   it('defaults every question to a plain text field', () => {
@@ -9,16 +15,16 @@ describe('QuestionForm', () => {
     expect(document.querySelectorAll('input')).toHaveLength(1);
   });
 
-  it('renders a native date field for a date question, and reports the answer as its ISO date', () => {
+  it('opens the calendar of Agentivity for a date question, and reports the answer as its ISO date', () => {
     const onSubmit = vi.fn();
     render(<QuestionForm props={{ questions: [{ id: 'start', label: 'Departure date', type: 'date' }], __onSubmit: onSubmit }} />);
 
-    const input = document.querySelector('input[type="date"]') as HTMLInputElement;
-    expect(input).toBeTruthy();
-    fireEvent.change(input, { target: { value: '2027-07-01' } });
+    expect(document.querySelector('input[type="date"]')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Departure date' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Tomorrow' }));
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
 
-    expect(onSubmit).toHaveBeenCalledWith('• Departure date → 2027-07-01');
+    expect(onSubmit).toHaveBeenCalledWith(`• Departure date → ${isoDate(tomorrow())}`);
   });
 
   it('renders a numeric field for a number question', () => {
@@ -96,11 +102,12 @@ describe('QuestionForm', () => {
 
     expect(screen.getByText('Optional')).toBeTruthy();
     fireEvent.change(document.querySelector('input[type="text"]')!, { target: { value: 'Barcelona' } });
-    fireEvent.change(document.querySelector('input[type="date"]')!, { target: { value: '2027-07-01' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Departure date' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Tomorrow' }));
     fireEvent.change(document.querySelector('input[type="number"]')!, { target: { value: '2' } });
     fireEvent.click(screen.getByRole('button', { name: 'Yes' }));
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
 
-    expect(onSubmit).toHaveBeenCalledWith(['• Destination → Barcelona', '• Departure date → 2027-07-01', '• Travelers → 2', '• Traveling with kids? → Yes'].join('\n'));
+    expect(onSubmit).toHaveBeenCalledWith(['• Destination → Barcelona', `• Departure date → ${isoDate(tomorrow())}`, '• Travelers → 2', '• Traveling with kids? → Yes'].join('\n'));
   });
 });

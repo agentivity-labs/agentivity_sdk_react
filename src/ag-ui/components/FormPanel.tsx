@@ -1,3 +1,4 @@
+import { DateField } from '../../artifacts/components/interaction/Calendar.js';
 import { useState, type ReactNode } from 'react';
 import type { FormController } from '../forms/form-controller.js';
 import type { AgFormField, FormOutcome, FormRequest } from '../forms/form-models.js';
@@ -109,7 +110,7 @@ function FieldInput({ field, value, onChange }: { field: AgFormField; value: unk
 
     case 'date': {
       const iso = value instanceof Date ? value.toISOString().slice(0, 10) : typeof value === 'string' ? value.slice(0, 10) : '';
-      return <input type="date" style={inputStyle} value={iso} onChange={(e) => onChange(e.target.value ? new Date(e.target.value).toISOString() : undefined)} />;
+      return <DateField value={iso || undefined} onChange={(day) => onChange(day)} />;
     }
 
     case 'file':
