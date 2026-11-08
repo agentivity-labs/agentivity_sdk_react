@@ -172,24 +172,34 @@ shows a short message instead of throwing (`resolveRenderable` itself throws a `
 An instance that asks to sign in wants a key with every request; one that does not (Community) wants none. Spaces are an
 internal matter of the instance: an SDK never names one. A key that may reach an element is enough.
 
-- **A program of yours** (a server, a script, a back office): a **secret key** `agv_…`, made in the Studio under *Your API keys*.
-  It acts with the rights of the person who made it. Keep it on the server; never put it in a web page.
+Anything outside the instance (a SaaS, a script, a website, a mobile app) talks to it with an **API key** `agv_…`, made by an
+administrator in the Studio under *API keys*. A key is never a person: it belongs to a space, opens only the Solutions you choose
+there (or every Solution of the space), and does what its permissions say: **run** them and follow their executions, use the
+space's **assets** (Data Tables rows, Knowledge Bases), serve an AI assistant over **MCP**, give tokens to the **users** of your system. It builds
+nothing: agents, teams and workflows are made in the Studio. Keep it on your server, never in a web page or an installed app.
+
+- **On your server**: give the key to the client.
 
   ```ts
   const client = new AgentivityPlatformClient({ baseUrl: 'https://my-instance.example.com', apiKey: process.env.AGENTIVITY_API_KEY });
   ```
 
-- **A site or an app in people's hands**: declare an **App** in the Studio (*Administration › Apps*). It opens the agents, teams and
-  workflows you choose, whole spaces, or every Solution, only from the sites you allow on it, and each of its users has their own
-  conversations. Its users are either yours, vouched for by your server with the App's secret (`aps_…`, never in a page), or
-  anonymous visitors of a demo, one per browser.
+- **Your users, in your pages** (a key with the permission *users*): each has their own conversations. Your server gets a token
+  for the user of the page (`client.keys.userToken({ userId })`, worth 15 minutes) and the page gives it to the SDK.
 
   ```tsx
-  // Your users: your server asks the instance for a token for the user of the page.
   <AgentivityProvider baseUrl="https://my-instance.example.com" getUserToken={() => fetch('/my-server/agentivity-token').then((r) => r.json())}>
-  // A demo: each browser gets an anonymous visitor of its own.
-  <AgentivityProvider baseUrl="https://my-instance.example.com" demoAppId="…">
   ```
+
+- **A demo** (a key with the permission *users*, for visitors of a demo): your server asks for a new anonymous visitor
+  (`client.keys.visitor()`), and each browser keeps its own between visits.
+
+  ```tsx
+  <AgentivityProvider baseUrl="https://my-instance.example.com" getDemoVisitor={() => fetch('/my-server/agentivity-visitor', { method: 'POST' }).then((r) => r.json())}>
+  ```
+
+- **People of the workspace** (an internal app): they sign in through the key with their own account,
+  `client.keys.signIn({ keyId, email, password })`.
 
 The key goes as `Authorization: Bearer <key>` (the instance also reads `x-api-key`).
 
@@ -210,14 +220,14 @@ try {
 | `code` | Status | What it means |
 |---|---|---|
 | `sign_in_required` | 401 | The instance asks for a key and got none. |
-| `invalid_key` | 401 | The key was revoked, has ended, or is mistyped. |
-| `key_scope` | 403 | The key's scope (`api`, `read`, `mcp`) does not cover this call. |
-| `origin_not_allowed` | 403 | An App, used from a site it does not allow. |
-| `app_scope` | 403 | Through an App, a call it does not open. |
-| `app_element` | 403 | Through an App, an agent, team or workflow it does not open. |
-| `permission_denied` | 403 | The role of the key's owner does not allow this (`permission` names what was needed). |
+| `invalid_key` | 401 | The key was deleted, renewed, or is mistyped. |
+| `key_scope` | 403 | The key's permissions (`run`, `assets`, `mcp`, `users`) do not cover this call. |
+| `key_in_page` | 403 | The key was sent from a web page: it stays on your server. |
+| `key_solutions` | 403 | With a key, a call it does not open. |
+| `key_solution` | 403 | With a key, a Solution it does not open. |
+| `permission_denied` | 403 | This is not allowed (`permission` names what was needed). |
 | `people_only` | 403 | Only a person signed in to the Studio does this, never a key. |
-| `space_not_visible` | 403 | The element is in a space the key's owner is not in. |
+| `space_not_visible` | 403 | The element is in another space than the key. |
 | `edition_feature` | 403 | The edition of the instance does not include this. |
 | `edition_limit` | 403 | The edition of the instance allows no more of this. |
 | `too_many_starts` | 429 | Too many conversations started from one site: try again in a minute. |

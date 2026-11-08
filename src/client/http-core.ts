@@ -5,15 +5,15 @@ import { SlowCalls } from './slow-calls.js';
 const API_V1 = '/api/v1';
 
 /**
- * The token of a user of an App (`agu_…`), worth a few minutes: given by the App's server for one of its own users, or by
- * signing in through the App for a person of the instance. `expiresAt`, when known, lets the client ask for the next one in time.
+ * The token of a user of an API key (`agu_…`), worth a few minutes: got by your server, with the key, for one of your users, or by
+ * signing in through the key for a person of the workspace. `expiresAt`, when known, lets the client ask for the next one in time.
  */
 export interface UserToken {
   token: string;
   expiresAt?: string | number | Date;
 }
 
-/** Asks for the next token of the user: the App's server again, or the instance for a person signed in through the App. */
+/** Asks for the next token of the user: your server again, or the instance for a person signed in through the key. */
 export type RenewUserToken = () => Promise<UserToken>;
 
 // A token is asked again this long before its end, so that no request goes with one about to end.
@@ -83,9 +83,9 @@ export class AgentivityHttpCore {
   private renewing?: Promise<string>;
 
   /**
-   * `apiKey`: the key a person made for this program, on an instance that asks to sign in (`agv_…`); sent with every request as
-   * `Authorization: Bearer`. Never put a secret key in a web page: a page goes through an App, with the token of its user
-   * ({@link setUserToken}) or as a visitor of a demo.
+   * `apiKey`: on an instance that asks to sign in, the API key an administrator made for your system (`agv_…`); sent with every
+   * request as `Authorization: Bearer`. It stays on your server, never in a web page or an installed app: a page speaks with the
+   * token of its user ({@link setUserToken}), which your server gets with the key, or as a visitor of a demo.
    */
   constructor(args: { baseUrl: string; fetchImpl?: typeof fetch; monitor?: ConnectionMonitor; apiKey?: string; workspaceStartWaitMs?: number }) {
     this.baseUrl = normalizeBaseUrl(args.baseUrl);
@@ -97,7 +97,7 @@ export class AgentivityHttpCore {
   }
 
   /**
-   * Speaks for a user of an App from now on: every request carries their token rather than the key. `renew` asks for the next
+   * Speaks for a user of an API key from now on: every request carries their token rather than the key. `renew` asks for the next
    * one: a minute before its end, and when the instance refuses it (the request is then sent once more). Without a token yet,
    * `renew` is asked for one at the first request. `null` and no `renew`: the client speaks for no user any more.
    */

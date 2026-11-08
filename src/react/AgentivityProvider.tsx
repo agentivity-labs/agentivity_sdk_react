@@ -11,18 +11,18 @@ export interface AgentivityProviderProps {
   /** An existing client instance, or a `baseUrl` to construct one from. */
   client?: AgentivityClient;
   baseUrl?: string;
-  /** With `baseUrl`, for a program of yours on a server: its secret key (`agv_…`). Never in a page: a page goes through an App (below). */
+  /** With `baseUrl`, on your server only: its API key (`agv_…`). Never in a page: a page speaks for its user or visitor (below). */
   apiKey?: string;
   /**
-   * For an App whose users are its own: asks the App's server for the token of the user of the page (`agu_…`, see
+   * For the users of your system: asks your server, which keeps the API key, for the token of the user of the page (`agu_…`, see
    * `client.setUserToken`). Asked at the first request, then a minute before each token ends; each user has their own conversations.
    */
   getUserToken?: () => Promise<UserToken>;
   /**
-   * For a demo App (a showcase, a public page): its id. Each browser gets an anonymous visitor of its own, kept between visits,
-   * with their own conversations; no key and no sign-in.
+   * For a demo (a showcase, a public page): asks the demo's server, which keeps the API key, for a new visitor
+   * (`client.keys.visitor()` there). Each browser keeps its anonymous visitor between visits, with their own conversations.
    */
-  demoAppId?: string;
+  getDemoVisitor?: () => Promise<UserToken>;
   /**
    * "Just a moment…" floating at the top while a call waits (`WaitNotice`): the first calls to a hosted workspace that wakes up take
    * most of a minute. On unless `false`; its words, where it floats and what "Try again" does can be given.
@@ -42,11 +42,14 @@ export interface AgentivityProviderProps {
  * </AgentivityProvider>
  * ```
  */
-export function AgentivityProvider({ client, baseUrl, apiKey, getUserToken, demoAppId, waitNotice, children }: AgentivityProviderProps): ReactNode {
-  // The last function given: a new one at each render does not make a new client.
+export function AgentivityProvider({ client, baseUrl, apiKey, getUserToken, getDemoVisitor, waitNotice, children }: AgentivityProviderProps): ReactNode {
+  // The last functions given: a new one at each render does not make a new client.
   const tokenSource = useRef(getUserToken);
   tokenSource.current = getUserToken;
+  const visitorSource = useRef(getDemoVisitor);
+  visitorSource.current = getDemoVisitor;
   const asksTokens = getUserToken !== undefined;
+  const asksVisitors = getDemoVisitor !== undefined;
   const resolved = useMemo(() => {
     let made = client;
     if (!made) {
@@ -56,9 +59,9 @@ export function AgentivityProvider({ client, baseUrl, apiKey, getUserToken, demo
       made = new AgentivityPlatformClient({ baseUrl, apiKey });
     }
     if (asksTokens) made.setUserToken(null, () => tokenSource.current!());
-    else if (demoAppId) made.apps.visitDemo(demoAppId);
+    else if (asksVisitors) made.keys.visitDemo(() => visitorSource.current!());
     return made;
-  }, [client, baseUrl, apiKey, asksTokens, demoAppId]);
+  }, [client, baseUrl, apiKey, asksTokens, asksVisitors]);
   // The pictures the instance keeps (a step's image in the chat) are read from it.
   setArtifactInstanceUrl(baseUrl ?? resolved.baseUrl);
 

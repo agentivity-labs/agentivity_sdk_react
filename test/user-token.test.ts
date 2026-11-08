@@ -5,8 +5,8 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 const authorizationOf = (fetchImpl: ReturnType<typeof vi.fn>, call: number) => new Headers((fetchImpl.mock.calls[call]![1] as RequestInit | undefined)?.headers).get('Authorization');
 const inMinutes = (minutes: number) => new Date(Date.now() + minutes * 60_000).toISOString();
 
-/** A page of an App speaks for its user: each has their own conversations, with a token worth a few minutes. */
-describe('a client speaking for a user of an App', () => {
+/** A page speaks for a user of an API key: each has their own conversations, with a token worth a few minutes. */
+describe('a client speaking for a user of an API key', () => {
   it('sends their token rather than the key, the streams included', async () => {
     const fetchImpl = vi.fn(async () => json([]));
     const client = new AgentivityPlatformClient({ baseUrl: 'https://instance.example.com', fetchImpl, apiKey: 'agv_server' });
@@ -48,7 +48,7 @@ describe('a client speaking for a user of an App', () => {
     expect(authorizationOf(fetchImpl, 1)).toBe('Bearer agu_next');
   });
 
-  it('a person signed in through the App: renewed with the token they have, then signed out', async () => {
+  it('a person signed in through the key: renewed with the token they have, then signed out', async () => {
     const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.endsWith('/sign-in')) return json({ token: 'agu_alice', expiresAt: inMinutes(0.5), user: { id: 'u1', name: 'Alice', email: 'alice@example.test' } });
@@ -57,23 +57,39 @@ describe('a client speaking for a user of an App', () => {
     });
     const client = new AgentivityPlatformClient({ baseUrl: 'https://instance.example.com', fetchImpl });
 
-    const signedIn = await client.apps.signIn({ appId: 'hr', email: 'alice@example.test', password: 'secret' });
+    const signedIn = await client.keys.signIn({ keyId: 'hr', email: 'alice@example.test', password: 'secret' });
     await client.httpCore.get('/api/v1/executions');
-    await client.apps.signOut('hr');
+    await client.keys.signOut('hr');
     await client.httpCore.get('/api/v1/executions');
 
     const urls = fetchImpl.mock.calls.map((c) => String(c[0]));
     expect(signedIn.user.name).toBe('Alice');
-    expect(urls[1]).toContain('/api/v1/apps/hr/user-tokens/renew');
+    expect(urls[1]).toContain('/api/v1/keys/hr/user-tokens/renew');
     expect(authorizationOf(fetchImpl, 1)).toBe('Bearer agu_alice');
     expect(authorizationOf(fetchImpl, 2)).toBe('Bearer agu_alice_2');
-    expect(urls[3]).toContain('/api/v1/apps/hr/sign-out');
+    expect(urls[3]).toContain('/api/v1/keys/hr/sign-out');
     expect(authorizationOf(fetchImpl, 3)).toBe('Bearer agu_alice_2');
     expect(authorizationOf(fetchImpl, 4)).toBeNull();
   });
 });
 
-/** A page of a demo: an anonymous visitor of its own, kept by the browser between visits. */
+/** On a server, with the key: tokens for the users of the system, and visitors of a demo. */
+describe('a server with its API key', () => {
+  it('asks for the token of a user, and for a visitor, with the key', async () => {
+    const fetchImpl = vi.fn(async () => json({ token: 'agu_user', expiresAt: inMinutes(15) }));
+    const client = new AgentivityPlatformClient({ baseUrl: 'https://instance.example.com', fetchImpl, apiKey: 'agv_k1_secret' });
+
+    await client.keys.userToken({ userId: 'u1', name: 'Alice' });
+    await client.keys.visitor();
+
+    expect(String(fetchImpl.mock.calls[0]![0])).toContain('/api/v1/keys/user-tokens');
+    expect(String(fetchImpl.mock.calls[1]![0])).toContain('/api/v1/keys/visitors');
+    expect(authorizationOf(fetchImpl, 0)).toBe('Bearer agv_k1_secret');
+    expect(authorizationOf(fetchImpl, 1)).toBe('Bearer agv_k1_secret');
+  });
+});
+
+/** A page of a demo: an anonymous visitor of its own, asked of the demo's server, kept by the browser between visits. */
 describe('a visitor of a demo', () => {
   const memory = () => {
     const kept = new Map<string, string>();
@@ -82,36 +98,35 @@ describe('a visitor of a demo', () => {
 
   it('is asked once, then kept for the next visit', async () => {
     let given = 0;
-    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => (String(input).endsWith('/visitors') ? json({ token: `agu_visitor_${++given}`, expiresAt: inMinutes(60 * 24 * 7) }) : json([])));
+    const fetchImpl = vi.fn(async () => json([]));
+    const fromServer = async () => ({ token: `agu_visitor_${++given}`, expiresAt: inMinutes(60 * 24 * 7) });
     const storage = memory();
 
     const first = new AgentivityPlatformClient({ baseUrl: 'https://instance.example.com', fetchImpl });
-    first.apps.visitDemo('demo', storage);
+    first.keys.visitDemo(fromServer, storage);
     await first.httpCore.get('/api/v1/executions');
     const again = new AgentivityPlatformClient({ baseUrl: 'https://instance.example.com', fetchImpl });
-    again.apps.visitDemo('demo', storage);
+    again.keys.visitDemo(fromServer, storage);
     await again.httpCore.get('/api/v1/executions');
 
     expect(given).toBe(1);
-    expect(String(fetchImpl.mock.calls[0]![0])).toContain('/api/v1/apps/demo/visitors');
+    expect(authorizationOf(fetchImpl, 0)).toBe('Bearer agu_visitor_1');
     expect(authorizationOf(fetchImpl, 1)).toBe('Bearer agu_visitor_1');
-    expect(authorizationOf(fetchImpl, 2)).toBe('Bearer agu_visitor_1');
   });
 
   it('gets a new visitor when the one kept is refused', async () => {
     let given = 0;
-    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      if (String(input).endsWith('/visitors')) return json({ token: `agu_visitor_${++given}`, expiresAt: inMinutes(60) });
-      return new Headers(init?.headers).get('Authorization') === 'Bearer agu_gone' ? json({ error: 'invalid_user_token' }, 401) : json([]);
-    });
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) =>
+      new Headers(init?.headers).get('Authorization') === 'Bearer agu_gone' ? json({ error: 'invalid_user_token' }, 401) : json([]));
+    const fromServer = async () => ({ token: `agu_visitor_${++given}`, expiresAt: inMinutes(60) });
     const storage = memory();
-    storage.setItem('agentivity.visitor.demo', JSON.stringify({ token: 'agu_gone', expiresAt: inMinutes(60) }));
+    storage.setItem('agentivity.visitor', JSON.stringify({ token: 'agu_gone', expiresAt: inMinutes(60) }));
     const client = new AgentivityPlatformClient({ baseUrl: 'https://instance.example.com', fetchImpl });
-    client.apps.visitDemo('demo', storage);
+    client.keys.visitDemo(fromServer, storage);
 
     await client.httpCore.get('/api/v1/executions');
 
     expect(given).toBe(1);
-    expect(JSON.parse(storage.getItem('agentivity.visitor.demo')!).token).toBe('agu_visitor_1');
+    expect(JSON.parse(storage.getItem('agentivity.visitor')!).token).toBe('agu_visitor_1');
   });
 });

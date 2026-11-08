@@ -7,7 +7,7 @@ import { UploadsApi } from './api/uploads-api.js';
 import { ConversationsApi } from './api/conversations-api.js';
 import { AgenticFoldersApi } from './api/agentic-folders-api.js';
 import { DataTablesApi } from './api/datatables-api.js';
-import { AppsApi } from './api/apps-api.js';
+import { KeysApi } from './api/keys-api.js';
 import { ConnectionMonitor } from './connection-monitor.js';
 import type { SlowCalls } from './slow-calls.js';
 
@@ -54,11 +54,11 @@ export class AgentivityClient {
   readonly agenticFolders: AgenticFoldersApi;
   /** Shared Data Table rows — read what a Team's workflow wrote, or write back where the app owns the data. */
   readonly dataTables: DataTablesApi;
-  /** The users of an App: a person of the instance signs in through it (see also {@link setUserToken}). */
-  readonly apps: AppsApi;
+  /** The users of an API key: tokens for the users of your system and visitors of a demo (on your server), sign-in of people of the workspace (see also {@link setUserToken}). */
+  readonly keys: KeysApi;
 
   /**
-   * `apiKey`: on an instance that asks to sign in, the key a person made for this program (`agv_…`) — see {@link AgentivityHttpCore}.
+   * `apiKey`: on an instance that asks to sign in, the API key of your system (`agv_…`), on your server only — see {@link AgentivityHttpCore}.
    * `workspaceStartWaitMs`: how long a read waits for a hosted workspace that wakes up (two minutes unless said).
    */
   /** The address of the instance this client talks to. */
@@ -79,12 +79,12 @@ export class AgentivityClient {
     this.conversations = new ConversationsApi(this.http);
     this.agenticFolders = new AgenticFoldersApi(this.http);
     this.dataTables = new DataTablesApi(this.http);
-    this.apps = new AppsApi(this.http);
+    this.keys = new KeysApi(this.http);
   }
 
   /**
-   * Speaks for a user of an App: each of them has their own conversations. The App's server gets their token (with its secret,
-   * never from a page); `renew` asks it for the next one, which the client does a minute before the end and when one is refused.
+   * Speaks for a user of an API key: each of them has their own conversations. Your server gets their token (with the key, never
+   * from a page); `renew` asks it for the next one, which the client does a minute before the end and when one is refused.
    * See {@link AgentivityHttpCore.setUserToken}.
    */
   setUserToken(token: string | UserToken | null, renew?: RenewUserToken): void {

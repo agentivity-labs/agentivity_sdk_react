@@ -72,8 +72,8 @@ export type { AssistantPanelProps } from './ag-ui/components/AssistantPanel.js';
 export * from './client/api-contract.js';
 export { AgentivityHttpCore } from './client/http-core.js';
 export type { RequestOptions, UserToken, RenewUserToken } from './client/http-core.js';
-export { AppsApi } from './client/api/apps-api.js';
-export type { AppSignedIn, VisitorStorage } from './client/api/apps-api.js';
+export { KeysApi } from './client/api/keys-api.js';
+export type { KeySignedIn, DemoVisitor, VisitorStorage } from './client/api/keys-api.js';
 
 // ── Client: domain models ────────────────────────────────────────────────────
 export * from './client/domain/execution-models.js';
