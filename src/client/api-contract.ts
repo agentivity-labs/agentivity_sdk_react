@@ -44,7 +44,7 @@ const refusalMessages: Record<string, string> = {
   key_scope: 'This key may not call this: make one with the scope it needs (api, read or mcp).',
   origin_not_allowed: "This site is not allowed by the App. Add it to the App's sites in the Studio.",
   app_scope: 'Through an App, one only talks to the agents, teams and workflows it opens.',
-  app_element: 'This App does not open this agent, team or workflow. Add it to what the App opens in the Studio.',
+  app_element: 'This App does not open this Solution. Add it to what the App opens in the Studio.',
   permission_denied: "The role of the key's owner does not allow this.",
   people_only: 'Only a person signed in to the Studio does this, never a key.',
   space_not_visible: "This is in a space the key's owner is not in.",
