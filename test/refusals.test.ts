@@ -25,7 +25,7 @@ describe('a refusal of the instance', () => {
 
   it('is said in words when the instance gives only its code', () => {
     expect(ApiException.fromResponse({ error: 'sign_in_required' }, 401).message).toContain('give the SDK an API key (agv_');
-    expect(ApiException.fromResponse({ error: 'origin_not_allowed' }, 403).message).toContain('add it to the sites of the key');
+    expect(ApiException.fromResponse({ error: 'origin_not_allowed' }, 403).message).toContain("Add it to the App's sites");
     expect(ApiException.fromResponse({ error: 'sign_in_required' }, 401).kind).toBe('key');
   });
 

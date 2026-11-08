@@ -13,7 +13,7 @@ import { AgUiGenericConnector } from './generic-connector.js';
  *
  * ## Quick start
  * ```ts
- * const connector = new AgentivityConnector({ apiKey: 'agp_...', organizationId: 'org_...' });
+ * const connector = new AgentivityConnector({ apiKey: process.env.AGENTIVITY_API_KEY, organizationId: 'org_...' });
  * const unsubscribe = connector.runAgent(
  *   { agentId: 'product-search', input: { threadId: 'thread-1', runId: 'run-1', messages: [buildAgUiMessage('user', { text: 'Find me an espresso machine' })] } },
  *   (event) => generativeController.feedEvent(event),

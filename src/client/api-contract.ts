@@ -42,14 +42,15 @@ const refusalMessages: Record<string, string> = {
   sign_in_required: 'This instance asks for a key: give the SDK an API key (agv_…) made in the Studio, under Your API keys.',
   invalid_key: 'The key is not valid: it was revoked, it has ended, or it is mistyped.',
   key_scope: 'This key may not call this: make one with the scope it needs (api, read or mcp).',
-  origin_not_allowed: 'This site is not one the key allows: add it to the sites of the key in the Studio.',
-  publishable_scope: 'A key for a web page only talks to the agent, team or workflow it was made for.',
+  origin_not_allowed: "This site is not allowed by the App. Add it to the App's sites in the Studio.",
+  app_scope: 'Through an App, one only talks to the agents, teams and workflows it opens.',
+  app_element: 'This App does not open this agent, team or workflow. Add it to what the App opens in the Studio.',
   permission_denied: "The role of the key's owner does not allow this.",
   people_only: 'Only a person signed in to the Studio does this, never a key.',
   space_not_visible: "This is in a space the key's owner is not in.",
   edition_feature: 'The edition of this instance does not include this.',
   edition_limit: 'The edition of this instance allows no more of this.',
-  too_many_starts: 'Too many conversations started from this site: try again in a minute.',
+  too_many_starts: 'Too many new conversations. Try again in a minute.',
 };
 
 /** The words for a refusal of the instance, by its code; undefined for a code it does not know. */

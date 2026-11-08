@@ -101,7 +101,7 @@ function parseThreadMessage(json: Record<string, unknown>): AgUiThreadMessage {
  *
  * ## Quick start
  * ```ts
- * const connector = new AgentivityPlatformConnector({ baseUrl: 'https://api.agentivity.com', authToken: 'agp_...' });
+ * const connector = new AgentivityPlatformConnector({ baseUrl: 'https://api.agentivity.com', authToken: process.env.AGENTIVITY_API_KEY });
  * const handle = await connector.startRun('my-workflow-id', 'Analyse this document', { enableHil: true });
  * const unsubscribe = connector.openRunStream(handle.runId, { streamUrl: handle.streamUrl }, (event) => {
  *   if (event.type === 'TEXT_MESSAGE_CONTENT') console.log(event.delta);

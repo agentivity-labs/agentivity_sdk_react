@@ -9,7 +9,7 @@ const inMinutes = (minutes: number) => new Date(Date.now() + minutes * 60_000).t
 describe('a client speaking for a user of an App', () => {
   it('sends their token rather than the key, the streams included', async () => {
     const fetchImpl = vi.fn(async () => json([]));
-    const client = new AgentivityPlatformClient({ baseUrl: 'https://instance.example.com', fetchImpl, apiKey: 'agp_page' });
+    const client = new AgentivityPlatformClient({ baseUrl: 'https://instance.example.com', fetchImpl, apiKey: 'agv_server' });
     client.setUserToken({ token: 'agu_alice', expiresAt: inMinutes(15) });
 
     await client.httpCore.get('/api/v1/executions');

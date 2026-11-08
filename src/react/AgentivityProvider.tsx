@@ -11,7 +11,7 @@ export interface AgentivityProviderProps {
   /** An existing client instance, or a `baseUrl` to construct one from. */
   client?: AgentivityClient;
   baseUrl?: string;
-  /** With `baseUrl`, on an instance that asks to sign in: a key for a web page (`agp_…`). Never a secret key (`agv_…`) in a page. */
+  /** With `baseUrl`, for a program of yours on a server: its secret key (`agv_…`). Never in a page: a page goes through an App (below). */
   apiKey?: string;
   /**
    * For an App whose users are its own: asks the App's server for the token of the user of the page (`agu_…`, see

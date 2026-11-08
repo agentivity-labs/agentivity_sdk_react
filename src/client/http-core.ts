@@ -84,8 +84,8 @@ export class AgentivityHttpCore {
 
   /**
    * `apiKey`: the key a person made for this program, on an instance that asks to sign in (`agv_…`); sent with every request as
-   * `Authorization: Bearer`. Never put a secret key in a web page: a page uses a key for a web page (`agp_…`), or the token of
-   * its user ({@link setUserToken}).
+   * `Authorization: Bearer`. Never put a secret key in a web page: a page goes through an App, with the token of its user
+   * ({@link setUserToken}) or as a visitor of a demo.
    */
   constructor(args: { baseUrl: string; fetchImpl?: typeof fetch; monitor?: ConnectionMonitor; apiKey?: string; workspaceStartWaitMs?: number }) {
     this.baseUrl = normalizeBaseUrl(args.baseUrl);

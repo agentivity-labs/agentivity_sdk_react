@@ -179,14 +179,17 @@ internal matter of the instance: an SDK never names one. A key that may reach an
   const client = new AgentivityPlatformClient({ baseUrl: 'https://my-instance.example.com', apiKey: process.env.AGENTIVITY_API_KEY });
   ```
 
-- **A web page** (a chat on your site): a **key for a web page** `agp_…`. It talks to the one agent, team or workflow it was made for,
-  only from the sites you allow on it (the browser's `Origin`), and a site may start only a limited number of conversations a minute.
+- **A site or an app in people's hands**: declare an **App** in the Studio (*Administration › Apps*). It opens the agents, teams and
+  workflows you choose, whole spaces, or every Solution, only from the sites you allow on it, and each of its users has their own
+  conversations. Its users are either yours, vouched for by your server with the App's secret (`aps_…`, never in a page), or
+  anonymous visitors of a demo, one per browser.
 
   ```tsx
-  <AgentivityProvider baseUrl="https://my-instance.example.com" apiKey="agp_…">
+  // Your users: your server asks the instance for a token for the user of the page.
+  <AgentivityProvider baseUrl="https://my-instance.example.com" getUserToken={() => fetch('/my-server/agentivity-token').then((r) => r.json())}>
+  // A demo: each browser gets an anonymous visitor of its own.
+  <AgentivityProvider baseUrl="https://my-instance.example.com" demoAppId="…">
   ```
-
-  The connectors take it the same way: `new AgentivityPlatformConnector({ baseUrl, authToken: 'agp_…' })`.
 
 The key goes as `Authorization: Bearer <key>` (the instance also reads `x-api-key`).
 
@@ -209,8 +212,9 @@ try {
 | `sign_in_required` | 401 | The instance asks for a key and got none. |
 | `invalid_key` | 401 | The key was revoked, has ended, or is mistyped. |
 | `key_scope` | 403 | The key's scope (`api`, `read`, `mcp`) does not cover this call. |
-| `origin_not_allowed` | 403 | A key for a web page, used from a site it does not allow. |
-| `publishable_scope` | 403 | A key for a web page, used for another element than its own. |
+| `origin_not_allowed` | 403 | An App, used from a site it does not allow. |
+| `app_scope` | 403 | Through an App, a call it does not open. |
+| `app_element` | 403 | Through an App, an agent, team or workflow it does not open. |
 | `permission_denied` | 403 | The role of the key's owner does not allow this (`permission` names what was needed). |
 | `people_only` | 403 | Only a person signed in to the Studio does this, never a key. |
 | `space_not_visible` | 403 | The element is in a space the key's owner is not in. |
