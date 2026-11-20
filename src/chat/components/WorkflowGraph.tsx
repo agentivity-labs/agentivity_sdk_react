@@ -212,7 +212,7 @@ export function WorkflowGraph({ controller, structure, nodeColor, statuses: stat
         viewBox={`0 0 ${Math.max(layout.width, 1).toFixed(1)} ${Math.max(layout.height, 1).toFixed(1)}`}
         {...pick.root}
         role={onNodeSelect ? 'group' : 'img'}
-        aria-label="Automation"
+        aria-label="Workflow"
       >
         <g
           className="ag-workflow-graph__viewport"
