@@ -105,7 +105,7 @@ function fromTemplate(file: Rec): Renderable {
   const entity = rootId ? entries.get(rootId) : undefined;
   if (!rootId || !entity) throw new RenderableError('root_not_found', 'The Template does not contain its root.');
   const kind = toKind(root?.['kind']) ?? toKind(byId.get(rootId)?.kind);
-  if (!kind) throw new RenderableError('unsupported_kind', 'The root of a Template is a team, a workflow or an agent.');
+  if (!kind) throw new RenderableError('unsupported_kind', 'The root of a Template is a team, an automation or an agent.');
   return {
     kind,
     id: rootId,
@@ -134,7 +134,7 @@ function fromWrapper(wrapper: Rec): Renderable {
 
 function fromBare(entity: Rec): Renderable {
   const kind = guessKind(entity);
-  if (!kind) throw new RenderableError('unsupported_kind', 'This object is not a team, a workflow or an agent.');
+  if (!kind) throw new RenderableError('unsupported_kind', 'This object is not a team, an automation or an agent.');
   const id = text(entity['id']) ?? '';
   return { kind, id, name: text(entity['name']) ?? id, entity, entitiesById: new Map() };
 }
@@ -149,7 +149,7 @@ export function resolveRenderable(source: unknown): Renderable {
       throw new RenderableError('not_json', 'The text is not JSON.');
     }
   }
-  if (!isRec(value)) throw new RenderableError('not_an_object', 'Nothing to draw: expected a Template, a team, a workflow or an agent.');
+  if (!isRec(value)) throw new RenderableError('not_an_object', 'Nothing to draw: expected a Template, a team, an automation or an agent.');
   // The marketplace answers { data: ... } (or { data, meta }): what to draw is inside.
   if (isRec(value['data']) && value['schema'] === undefined && !('entryJson' in value) && !('entry' in value) && guessKind(value) === undefined) return resolveRenderable(value['data']);
   if (value['schema'] === 'agentivity.template') return fromTemplate(value);
